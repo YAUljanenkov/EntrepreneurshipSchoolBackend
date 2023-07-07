@@ -1,7 +1,19 @@
-namespace EntrepreneurshipSchoolBackend.Models;
+﻿using System.ComponentModel.DataAnnotations;
 
-public class Lesson
+namespace EntrepreneurshipSchoolBackend.Models
 {
-    public int Id { get; set; }
-    public String Title { get; set; }
+    public class Lesson
+    {
+        [Key] public int Id { get; set; }
+
+        [Required] public string Title { get; set; } = String.Empty;
+
+        [Required] public string Description { get; set; } = String.Empty;
+
+        [Required] public DateTime Date { get; set; }
+
+        [Required] public string PresLink { get; set; } = String.Empty;
+
+        [Required] public string VideoLink { get; set; } = String.Empty;
+    }
 }
