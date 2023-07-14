@@ -22,7 +22,7 @@ public class Startup
         {
             services.AddControllers();
             services.AddEndpointsApiExplorer();
-            // var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+            //var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
             services.AddDbContext<ApiDbContext>(options =>
                 options.UseNpgsql(
                     connectionString

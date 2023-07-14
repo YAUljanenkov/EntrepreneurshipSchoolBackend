@@ -17,7 +17,7 @@ public class ApiDbContext : DbContext
     public DbSet<Group> Groups { get; set; }
     public DbSet<Learner> Learner { get; set; }
     public DbSet<Lesson> Lessons { get; set; }
-    public DbSet<Lot> Lot { get; set; }
+    public DbSet<Lot> Lots { get; set; }
     public DbSet<Relate> Relates { get; set; }
     public DbSet<Solution> Solutions { get; set; }
     public DbSet<Task> Tasks { get; set; }
@@ -25,10 +25,7 @@ public class ApiDbContext : DbContext
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<TransactionType> TransactionTypes { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseNpgsql(Environment.GetEnvironmentVariable("DB_CONNECTION_STRING"));
-    }
+    public DbSet<UserFile> UserFiles { get; set; } 
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
