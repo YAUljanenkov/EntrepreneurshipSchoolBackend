@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using EntrepreneurshipSchoolBackend.Utility;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EntrepreneurshipSchoolBackend.Models
@@ -12,7 +13,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     /// 5. Вес оценки за посещение.
     /// </summary>
     [Table("FinalTypes")]
-    public class FinalGradeType
+    public class FinalGradeType : IType
     {
         [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
 

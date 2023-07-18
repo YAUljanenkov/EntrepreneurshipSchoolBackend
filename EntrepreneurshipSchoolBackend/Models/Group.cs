@@ -10,6 +10,8 @@ namespace EntrepreneurshipSchoolBackend.Models
 
         [Required] public int Number { get; set; }
 
+        [Required, StringLength(100)] public string Name { get; set; }
+
         [Required] public string Theme { get; set; } = string.Empty;
 
     }

@@ -15,10 +15,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             _context = context;
         }
 
-        [HttpGet("SeeAllFiles")]
-        public async Task<ActionResult> SeeFiles()
+        [HttpGet("GetAllFiles")]
+        public async Task<ActionResult> GetFiles()
         {
-            return Ok(_context.UserFiles);
+            return Ok(_context.UserFiles.ToList());
         }
 
         [HttpGet("DownloadFileByName")]
