@@ -3,9 +3,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EntrepreneurshipSchoolBackend.Models
 {
+    [Table("Assessments")]
     public class Assessments
     {
-        [Key] public int Id { get; set; }
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
         [ForeignKey("Learner")] public int LearnerId { get; set; }
         [ForeignKey("Task")] public int TaskId { get; set; }
 
@@ -14,9 +15,11 @@ namespace EntrepreneurshipSchoolBackend.Models
 
         [Required] public int Grade { get; set; }
 
+        [Required] public DateTime Date { get; set; }
+
         public string Comment { get; set; } = string.Empty;
 
-        [Required] public AssessmentsType? AssessmentsType { get; set; }
+        [Required] public int? AssessmentsType { get; set; }
 
         [ForeignKey("Tracker")] public int TrackerId { get; set; }
 

@@ -1,10 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EntrepreneurshipSchoolBackend.Models
 {
+    [Table("Attends")]
+    [PrimaryKey(nameof(LearnerId), nameof(LessonId))]
     public class Attend
     {
-        [Key] public int Id { get; set; }
         public int LearnerId { get; set; }
         public int LessonId { get; set; }
         [Required] public Learner? Learner { get; set;}

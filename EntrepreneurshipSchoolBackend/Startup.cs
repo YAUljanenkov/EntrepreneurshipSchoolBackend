@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Swagger;
+using Task = System.Threading.Tasks.Task;
 
 namespace EntrepreneurshipSchoolBackend;
 
@@ -38,9 +39,7 @@ public class Startup
         });
         services.AddAuthorization();
         // var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
-        services.AddDbContext<ApiDbContext>(options =>
-            options.UseNpgsql(connectionString)
-        );
+        services.AddDbContext<ApiDbContext>(options => { options.UseNpgsql(connectionString); });
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new OpenApiInfo
