@@ -30,7 +30,7 @@ public class AuthController : ControllerBase
     /// <summary>
     /// This method returns user login data.
     /// </summary>
-    /// <returns>Json in format {login: ""}</returns>
+    /// <returns>An array of claim data.</returns>
     [Authorize]
     [HttpGet("userinfo")]
     public IActionResult get()
@@ -48,7 +48,7 @@ public class AuthController : ControllerBase
     /// Authenticates a user. 
     /// </summary>
     /// <param name="model">User's login and pasword.</param>
-    /// <returns>200 if logged in.</returns>
+    /// <returns>200 if logged in, 404 if not.</returns>
     [HttpPost("/auth")]
     public async Task<IActionResult> login(AuthModel model)
     {
@@ -59,7 +59,6 @@ public class AuthController : ControllerBase
             var admin = _context.Admins.First(x => x.EmailLogin == model.login);
             if (!VerifyHashedPassword(admin.Password, model.password))
             {
-                Console.WriteLine("Admin not verified");
                 return NotFound();
             }
 
@@ -72,7 +71,6 @@ public class AuthController : ControllerBase
             var learner = _context.Learner.First(x => x.EmailLogin == model.login);
             if (!VerifyHashedPassword(learner.Password, model.password))
             {
-                Console.WriteLine("Learner not verified");
                 return NotFound();
             }
 
@@ -87,13 +85,10 @@ public class AuthController : ControllerBase
         }
         else
         {
-            Console.WriteLine("Not found");
             return NotFound();
         }
-
-        // создаем объект ClaimsIdentity
+        
         ClaimsIdentity claimsIdentity = new ClaimsIdentity(claims, "Cookies");
-        // установка аутентификационных куки
         await Request.HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(claimsIdentity));
         return new OkObjectResult(new { role });
