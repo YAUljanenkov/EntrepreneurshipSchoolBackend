@@ -6,7 +6,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("Tasks")]
     public class Task
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
+        [Key] public int Id { get; set; }
 
         public string? Link { get; set; }
 
@@ -17,7 +17,7 @@ namespace EntrepreneurshipSchoolBackend.Models
         [StringLength(1024)] public string? Comment { get; set; } = string.Empty;
         public Lesson? Lesson { get; set; }
 
-        [Required] public TaskType? Type { get; set; }
+        [Required] public TaskType Type { get; set; }
 
         public bool? IsGroup { get; set; } = false;
 

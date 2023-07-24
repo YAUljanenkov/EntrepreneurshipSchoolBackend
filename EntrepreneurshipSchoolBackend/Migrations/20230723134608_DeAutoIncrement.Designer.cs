@@ -3,6 +3,7 @@ using System;
 using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EntrepreneurshipSchoolBackend.Migrations
 {
     [DbContext(typeof(ApiDbContext))]
-    partial class ApiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230723134608_DeAutoIncrement")]
+    partial class DeAutoIncrement
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -42,7 +45,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Admins", (string)null);
+                    b.ToTable("Admins");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Assessments", b =>
@@ -84,7 +87,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("TrackerId");
 
-                    b.ToTable("Assessments", (string)null);
+                    b.ToTable("Assessments");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.AssessmentsType", b =>
@@ -101,7 +104,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("AssessmentsTypes", (string)null);
+                    b.ToTable("AssessmentsTypes");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Attend", b =>
@@ -124,7 +127,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("TransactionId");
 
-                    b.ToTable("Attends", (string)null);
+                    b.ToTable("Attends");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Claim", b =>
@@ -183,7 +186,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("TypeId");
 
-                    b.ToTable("Claims", (string)null);
+                    b.ToTable("Claims");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.ClaimStatus", b =>
@@ -200,7 +203,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ClaimStatuses", (string)null);
+                    b.ToTable("ClaimStatuses");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.ClaimType", b =>
@@ -217,7 +220,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ClaimTypes", (string)null);
+                    b.ToTable("ClaimTypes");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.FinalGradeType", b =>
@@ -237,7 +240,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("FinalTypes", (string)null);
+                    b.ToTable("FinalTypes");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Group", b =>
@@ -262,7 +265,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Groups", (string)null);
+                    b.ToTable("Groups");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Learner", b =>
@@ -323,7 +326,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Learners", (string)null);
+                    b.ToTable("Learners");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Lesson", b =>
@@ -362,7 +365,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Lessons", (string)null);
+                    b.ToTable("Lessons");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Lot", b =>
@@ -405,7 +408,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("LearnerId");
 
-                    b.ToTable("Lots", (string)null);
+                    b.ToTable("Lots");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Relate", b =>
@@ -420,7 +423,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("GroupId");
 
-                    b.ToTable("Relates", (string)null);
+                    b.ToTable("Relates");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Solution", b =>
@@ -447,7 +450,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("LearnerId");
 
-                    b.ToTable("Solutions", (string)null);
+                    b.ToTable("Solutions");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Task", b =>
@@ -492,7 +495,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("TypeId");
 
-                    b.ToTable("Tasks", (string)null);
+                    b.ToTable("Tasks");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.TaskType", b =>
@@ -509,7 +512,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TaskTypes", (string)null);
+                    b.ToTable("TaskTypes");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Transaction", b =>
@@ -548,7 +551,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasIndex("TypeId");
 
-                    b.ToTable("Transactions", (string)null);
+                    b.ToTable("Transactions");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.TransactionType", b =>
@@ -565,7 +568,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TransactionTypes", (string)null);
+                    b.ToTable("TransactionTypes");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.UserFile", b =>
@@ -581,7 +584,7 @@ namespace EntrepreneurshipSchoolBackend.Migrations
 
                     b.HasKey("Name");
 
-                    b.ToTable("UserFiles", (string)null);
+                    b.ToTable("UserFiles");
                 });
 
             modelBuilder.Entity("EntrepreneurshipSchoolBackend.Models.Assessments", b =>
