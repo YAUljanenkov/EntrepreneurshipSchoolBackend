@@ -10,8 +10,8 @@ namespace EntrepreneurshipSchoolBackend.Models
         [Required, StringLength(512)] public string Comment { get; set; } = String.Empty;
         [Required] public DateTime Date { get; set; }
         [Required] public int Sum { get; set; } 
-        [Required] public TransactionType? Type { set; get; }
-        [Required] public Learner? Learner { set; get; }
+        [Required] public TransactionType Type { set; get; }
+        [Required] public Learner Learner { set; get; }
         public Claim? Claim { set; get; }
 
     }
