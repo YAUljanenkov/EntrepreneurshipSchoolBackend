@@ -21,7 +21,7 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Create the controller with a dependency injection of a database context.
     /// </summary>
-    /// <param name="context"></param>
+    /// <param name="context">Context required to work with a database.</param>
     public AuthController(ApiDbContext context)
     {
         _context = context;
@@ -62,7 +62,7 @@ public class AuthController : ControllerBase
                 return NotFound();
             }
 
-            claims.Add(new Claim(ClaimTypes.Name, model.login));
+            claims.Add(new Claim(ClaimTypes.Sid, admin.Id.ToString()));
             claims.Add(new Claim(ClaimTypes.Role, Roles.Admin));
             role = Roles.Admin;
         }
@@ -74,7 +74,7 @@ public class AuthController : ControllerBase
                 return NotFound();
             }
 
-            claims.Add(new Claim(ClaimTypes.Name, model.login));
+            claims.Add(new Claim(ClaimTypes.Sid, learner.Id.ToString()));
             claims.Add(new Claim(ClaimTypes.Role, Roles.Learner));
             role = Roles.Learner;
             if (learner.IsTracker == '1')
