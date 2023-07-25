@@ -2,6 +2,7 @@ using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
+using System.Security.Claims;
 using EntrepreneurshipSchoolBackend.DTOs;
 using Microsoft.EntityFrameworkCore;
 
@@ -159,11 +160,14 @@ public class TransactionController : ControllerBase
         }
 
         var learner = _context.Learner.First(x => x.Id == transaction.learnerId);
+        var type = _context.TransactionTypes.First(
+            x => x.Name == (transaction.sum > 0 ? "AdminIncome" : "AdminOutcome"));
         var newTransaction = new Transaction
         {
             Comment = transaction.description,
             Sum = transaction.sum,
             Learner = learner,
+            Type = type,
             Date = DateTime.Now.ToUniversalTime()
         };
 
@@ -185,7 +189,38 @@ public class TransactionController : ControllerBase
         {
             return new NotFoundResult();
         }
-        
-        return new OkObjectResult(new TransactionDTO(_context.Transactions.First(x => x.Id == id)));
+
+        return new OkObjectResult(new TransactionDTO(_context.Transactions.Include(x => x.Learner).Include(x => x.Claim).Include(x => x.Type)
+            .First(x => x.Id == id)));
+    }
+
+    /// <summary>
+    /// Get transactions with filters by learner.
+    /// </summary>
+    /// <param name="transactionType">Types of transactions. Supported types: Activity, SellLot, AdminIncome, TransferIncome, FailedDeadline, BuyLot, AdminOutcome, TransferOutcome</param>
+    /// <param name="dateFrom">The beginning of the desired interval</param>
+    /// <param name="dateTo">The end of the desired interval</param>
+    /// <param name="sortProperty">Property of response to sort by. Supported: id, type, date, sum, comment or description, learner.</param>
+    /// <param name="sortOrder">Sorting order. Available values : asc, desc</param>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">The size of the page to be returned</param>
+    /// <returns>A list of transactions with pagination info.</returns>
+    [HttpGet("/learner/transactions")]
+    [Authorize(Roles = Roles.Learner)]
+    public IActionResult GetLearnerTransactions(string? transactionType, string? dateFrom,
+        string? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
+    {
+        if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
+        {
+            return new UnauthorizedResult();
+        }
+
+        if (!_context.Learner.Any(x => x.Id == learnerId))
+        {
+            return new UnauthorizedResult();
+        }
+
+        return GetAdminTransactions(learnerId, transactionType, dateFrom, dateTo, sortProperty, sortOrder, page,
+            pageSize);
     }
 }

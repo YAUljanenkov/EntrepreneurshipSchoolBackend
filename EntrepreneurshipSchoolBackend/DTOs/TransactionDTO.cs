@@ -11,8 +11,12 @@ public record class TransactionDTO
     public string dateTime { get; }
     public int sum { get; }
     public Claim? claim { get; }
-    public TransactionDTO(Transaction transaction)
+    public TransactionDTO(Transaction? transaction)
     {
+        if (transaction == null)
+        {
+            return;
+        }
         this.id = transaction.Id;
         this.learner = new Learner(
             transaction.Learner.Id,
