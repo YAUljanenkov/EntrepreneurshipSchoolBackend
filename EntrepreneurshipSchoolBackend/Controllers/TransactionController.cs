@@ -10,6 +10,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers;
 /// <summary>
 /// This controller is responsible for operating endpoints of transactions.
 /// </summary>
+[ApiController]
 public class TransactionController : ControllerBase
 {
     private readonly ApiDbContext _context;
@@ -24,17 +25,17 @@ public class TransactionController : ControllerBase
     }
 
     /// <summary>
-    /// 
+    /// Get transactions with filters by admin.
     /// </summary>
-    /// <param name="learnerId"></param>
-    /// <param name="transactionType"></param>
-    /// <param name="dateFrom"></param>
-    /// <param name="dateTo"></param>
-    /// <param name="sortProperty"></param>
-    /// <param name="sortOrder"></param>
-    /// <param name="page"></param>
-    /// <param name="pageSize"></param>
-    /// <returns></returns>
+    /// <param name="learnerId">Id of a learner.</param>
+    /// <param name="transactionType">Types of transactions. Supported types: Activity, SellLot, AdminIncome, TransferIncome, FailedDeadline, BuyLot, AdminOutcome, TransferOutcome</param>
+    /// <param name="dateFrom">The beginning of the desired interval</param>
+    /// <param name="dateTo">The end of the desired interval</param>
+    /// <param name="sortProperty">Property of response to sort by. Supported: id, type, date, sum, comment or description, learner.</param>
+    /// <param name="sortOrder">Sorting order. Available values : asc, desc</param>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">The size of the page to be returned</param>
+    /// <returns>A list of transactions with pagination info.</returns>
     [HttpGet("/admin/transactions")]
     [Authorize(Roles = Roles.Admin)]
     public IActionResult GetAdminTransactions(int? learnerId, string? transactionType, string? dateFrom,
@@ -74,7 +75,8 @@ public class TransactionController : ControllerBase
 
         dateToValue = dateToValue.ToUniversalTime();
         if (sortProperty != null && !typeof(Transaction).GetProperties().Select(x => x.Name.ToLower())
-                .Contains(sortProperty.ToLower()) && sortProperty.ToLower() != "description")
+                .Contains(sortProperty.ToLower()) && sortProperty.ToLower() != "description" &&
+            sortProperty.ToLower() != "dateTime")
         {
             return new BadRequestObjectResult("Incorrect parameters.");
         }
@@ -108,7 +110,9 @@ public class TransactionController : ControllerBase
             "comment" or "description" => sortOrder == "desc"
                 ? query.OrderByDescending(x => x.Comment)
                 : query.OrderBy(x => x.Comment),
-            "date" => sortOrder == "desc" ? query.OrderByDescending(x => x.Date) : query.OrderBy(x => x.Date),
+            "date" or "dateTime" => sortOrder == "desc"
+                ? query.OrderByDescending(x => x.Date)
+                : query.OrderBy(x => x.Date),
             "sum" => sortOrder == "desc" ? query.OrderByDescending(x => x.Sum) : query.OrderBy(x => x.Sum),
             "type" => sortOrder == "desc"
                 ? query.OrderByDescending(x => x.Type.Name)
@@ -138,5 +142,50 @@ public class TransactionController : ControllerBase
         };
 
         return new OkObjectResult(result);
+    }
+
+    /// <summary>
+    /// Creates new transaction by admin.
+    /// </summary>
+    /// <param name="transaction">A transaction to create.</param>
+    /// <returns>200 if all data is OK and transaction created.</returns>
+    [HttpPost("/admin/transactions")]
+    [Authorize(Roles = Roles.Admin)]
+    public IActionResult createTransaction(CreateTransaction transaction)
+    {
+        if (!_context.Learner.Any(x => x.Id == transaction.learnerId))
+        {
+            return new BadRequestResult();
+        }
+
+        var learner = _context.Learner.First(x => x.Id == transaction.learnerId);
+        var newTransaction = new Transaction
+        {
+            Comment = transaction.description,
+            Sum = transaction.sum,
+            Learner = learner,
+            Date = DateTime.Now.ToUniversalTime()
+        };
+
+        _context.Transactions.Add(newTransaction);
+        _context.SaveChanges();
+        return new OkResult();
+    }
+
+    /// <summary>
+    /// Get transaction by id for admin.
+    /// </summary>
+    /// <param name="id">Id of a transaction.</param>
+    /// <returns>A transaction.</returns>
+    [HttpGet("/admin/transactions/{id:int}")]
+    [Authorize(Roles = Roles.Admin)]
+    public IActionResult getTransaction(int id)
+    {
+        if (!_context.Transactions.Any(x => x.Id == id))
+        {
+            return new NotFoundResult();
+        }
+        
+        return new OkObjectResult(new TransactionDTO(_context.Transactions.First(x => x.Id == id)));
     }
 }

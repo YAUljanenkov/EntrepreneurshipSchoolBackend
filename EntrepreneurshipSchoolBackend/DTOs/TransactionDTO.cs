@@ -10,6 +10,7 @@ public record class TransactionDTO
     public string description { get; }
     public string dateTime { get; }
     public int sum { get; }
+    public Claim? claim { get; }
     public TransactionDTO(Transaction transaction)
     {
         this.id = transaction.Id;
@@ -21,7 +22,12 @@ public record class TransactionDTO
         this.description = transaction.Comment;
         this.dateTime = transaction.Date.ToString("dd.MM.yyyy HH:mm:ss");
         this.sum = transaction.Sum;
+        if (transaction.Claim != null)
+        {
+            claim = new Claim(transaction.Claim.Id, transaction.Claim.Description ?? "");
+        }
     }
 
     public record Learner(int id, string name);
+    public record Claim(int id, string title);
 }
