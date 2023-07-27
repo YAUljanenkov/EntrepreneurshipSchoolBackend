@@ -19,6 +19,9 @@
         public DateTime? deadline { get; set; }
     }
 
+    /// <summary>
+    /// Класс задания, представляемого в get-методе тасков с перечислением страниц.
+    /// </summary>
     public class TaskPageDTO
     {
         public int Id { get; set; }
@@ -28,18 +31,27 @@
         public DateTime deadline { get; set; }
     }
 
+    /// <summary>
+    /// Краткое представление задания из id и названия.
+    /// </summary>
     public class TaskOutputDTO
     {
         public int Id { get; set; }
         public string Title { get; set;}
     }
 
+    /// <summary>
+    /// Ответ на запрос, выводящий список заданий по страницам.
+    /// </summary>
     public class TaskOutputPageDTO
     {
         public Pagination pagination { get; set; }
         public List<TaskPageDTO> content { get; set; }
     }
 
+    /// <summary>
+    /// Задание, снабжённое дедлайном. Используется в методе, выводящем задания по дедлайну.
+    /// </summary>
     public class TaskDeadlineDTO
     {
         public LessonOutputDTO? lesson { get; set; }
