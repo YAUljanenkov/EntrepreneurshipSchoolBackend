@@ -28,10 +28,22 @@ public record class TransactionDTO
         this.sum = transaction.Sum;
         if (transaction.Claim != null)
         {
-            claim = new Claim(transaction.Claim.Id, transaction.Claim.Description ?? "");
+            claim = new Claim(transaction.Claim.Id, claimTypeToHuman(transaction.Claim));
         }
     }
 
     public record Learner(int id, string name);
     public record Claim(int id, string title);
+
+    private string claimTypeToHuman(Models.Claim claim)
+    {
+        return claim.Type.Name switch
+        {
+            "BuyingLot" => $"Покупка лота №{claim.Lot.Id} учеником {claim.Receiver.Surname} {claim.Receiver.Name} {claim.Receiver.Lastname}. Дата: {claim.Date:dd.MM.yyyy HH:mm:ss}",
+            "FailedDeadline" => $"Просроченный дедлайн задания {claim.Task.Title} учеником {claim.Learner.Surname} {claim.Learner.Name} {claim.Learner.Lastname}. Дата: {claim.Date:dd.MM.yyyy HH:mm:ss}",
+            "Transfer" => $"Перевод от ученика {claim.Learner.Surname} {claim.Learner.Name} {claim.Learner.Lastname} ученику {claim.Receiver.Surname} {claim.Receiver.Name} {claim.Receiver.Lastname} {claim.Sum} шпрот. Дата: {claim.Date:dd.MM.yyyy HH:mm:ss}",
+            "PlacingLot" => $"Продажа лота №{claim.Lot.Id} учеником {claim.Learner.Surname} {claim.Learner.Name} {claim.Learner.Lastname}. Дата: {claim.Date:dd.MM.yyyy HH:mm:ss}",
+            _ => ""
+        };
+    }
 }

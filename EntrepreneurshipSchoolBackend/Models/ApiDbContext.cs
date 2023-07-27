@@ -24,7 +24,7 @@ public class ApiDbContext : DbContext
     public DbSet<Solution> Solutions { get; set; }
     public DbSet<Task> Tasks { get; set; }
     public DbSet<TaskType> TaskTypes { get; set; }
-    public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<Transaction?> Transactions { get; set; }
     public DbSet<TransactionType> TransactionTypes { get; set; }
 
     public DbSet<UserFile> UserFiles { get; set; } 
