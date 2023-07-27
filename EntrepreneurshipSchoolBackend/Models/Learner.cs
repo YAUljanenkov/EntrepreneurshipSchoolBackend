@@ -32,5 +32,7 @@ namespace EntrepreneurshipSchoolBackend.Models
         [Required] public double ResultGrade { get; set; }
 
         public double? GradeBonus { get; set; }
+
+        public virtual ICollection<Relate> Relate { get; set; }
     }
 }
