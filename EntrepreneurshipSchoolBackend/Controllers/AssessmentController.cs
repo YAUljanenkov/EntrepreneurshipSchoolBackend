@@ -3,6 +3,7 @@ using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -366,8 +367,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 bonus = bonusNullable.Value;
             }
 
-            double total = Math.Round(hw * hwMult + testMult * testMult + competition * competitionMult + 
-                exam * examMult + attendance * attendMult + bonus, 2); 
+            double total = Math.Round(hw * hwMult + testMult * testMult + competition * competitionMult +
+                exam * examMult + attendance * attendMult + bonus, 2);
 
             // Теперь, когда все значения посчитаны, нужно послать эти данные с помощью DTO.\
             // Запакуем их...
@@ -408,7 +409,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             return Ok(result);
         }
-        
+
         /// <summary>
         /// Метод выставляет финальную оценку по одному из видов контроля.
         /// Метод работает, если администратор выставил нулевые оценки тем, кто не сделал задания.
@@ -416,7 +417,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <param name="typeName"></param>
         /// <param name="learnerId"></param>
         /// <returns></returns>
-        private double GetFinalGradeByType (string typeName, int learnerId)
+        private double GetFinalGradeByType(string typeName, int learnerId)
         {
             TaskType? taskType = _context.TaskTypes.FirstOrDefault(type => type.Name == typeName);
 
@@ -507,7 +508,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             FinalWeightDTO? hw = result.FirstOrDefault(type => type.type == "HW");
 
-            if(hw != null)
+            if (hw != null)
             {
                 _context.FinalTypes.FirstOrDefault(type => type.Name == "HW").Weight = hw.weight;
             }
@@ -573,9 +574,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <returns></returns>
         [HttpGet("/learner/assessments/final")]
         [Authorize(Roles = Roles.Learner)]
-        public async Task<ActionResult> LearnerGetAssessments ([Required]string taskType, [Required]int learnerId)
+        public async Task<ActionResult> LearnerGetAssessments([Required] string taskType, [Required] int learnerId)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest("Incorrect parameters");
             }
@@ -586,7 +587,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             List<LearnerAssessmentDTO> result = new List<LearnerAssessmentDTO>();
 
-            foreach(var assess in assessments)
+            foreach (var assess in assessments)
             {
                 LearnerAssessmentDTO newDTO = new LearnerAssessmentDTO();
 
@@ -595,10 +596,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 newDTO.taskType = assess.Task.Type.Name;
                 newDTO.issueDate = assess.Date;
 
-                if(assess.Task.Lesson != null)
+                if (assess.Task.Lesson != null)
                 {
                     newDTO.lessonId = assess.Task.Lesson.Id;
-                } 
+                }
                 else
                 {
                     newDTO.lessonId = null;
@@ -611,6 +612,89 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             return Ok(result);
         }
 
-        // ОЦЕНКИ ТРЕКЕРОВ ПОКА НЕ СДЕЛАНЫ.
+        [HttpPost("/tracker/assessments")]
+        [Authorize(Roles = Roles.Tracker)]
+        public async Task<ActionResult> CreateTrackerAssessment([FromBody] AssessmentInputDTO data)
+        {
+            // Сначала проверяем достаточность имеющихся данных.
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Some of the crucial properties have not been specified");
+            }
+
+            // С помощью авторизации мы можем найти логин трекера и найти по нему его идентификатор.
+            Learner? tracker = _context.Learner.FirstOrDefault(tracker => tracker.Id == int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value));
+
+            if (tracker == null)
+            {
+                return NotFound();
+            }
+
+            // Конструируем новый объект оценки по имеющимся данным.
+            Assessments newAssessment = new Assessments();
+
+            newAssessment.Id = data.id;
+            newAssessment.LearnerId = data.learnerId;
+            newAssessment.Learner = _context.Learner.Find(data.learnerId);
+            newAssessment.TaskId = data.taskId;
+            newAssessment.Task = _context.Tasks.Find(data.taskId);
+            newAssessment.Grade = data.assessment;
+            newAssessment.Date = DateTime.Now;
+            newAssessment.Comment = data.comment;
+            newAssessment.AssessmentsType = 1;
+            newAssessment.TrackerId = tracker.Id;
+            newAssessment.Tracker = tracker;
+
+            // Проверяем, не является ли эта оценка копией какой-то другой оценки из БД.
+            Assessments? possibleCopy = _context.Assessments.FirstOrDefault(assessment => assessment.LearnerId == newAssessment.LearnerId &&
+                                                                                assessment.TaskId == newAssessment.TaskId && assessment.TrackerId == newAssessment.TrackerId);
+
+            if (possibleCopy != null)
+            {
+                return Conflict("Key properties of entity already in use");
+            }
+
+            // Если всё хорошо, записываем новую оценку в БД.
+            _context.Assessments.Add(newAssessment);
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+        [HttpPut("/tracker/assessments")]
+        [Authorize(Roles = Roles.Tracker)]
+        public async Task<ActionResult> UpdateTrackerAssessment([FromBody] AssessmentInputDTO data)
+        {
+            // Проверяем правильность введённой информации.
+            if (!ModelState.IsValid)
+            {
+                return BadRequest("Some of the crucial properties have not been specified");
+            }
+
+            // Ищем трекера по информации авторизации.
+            Learner? tracker = _context.Learner.FirstOrDefault(user => user.Id == int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value));
+
+            if (tracker == null)
+            {
+                return NotFound();
+            }
+
+            // Ищем подходящую оценку.
+            Assessments thisAssessment = _context.Assessments.FirstOrDefault(assessment => assessment.Id == data.id && assessment.TrackerId == tracker.Id);
+
+            if (thisAssessment == null)
+            {
+                return NotFound();
+            }
+
+            // Меняем информацию об оценке.
+            thisAssessment.Grade = data.assessment;
+            thisAssessment.Comment = data.comment;
+            thisAssessment.Date = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
     }
 }
