@@ -202,7 +202,7 @@ public class ClaimController : ControllerBase
             var transactionType = _context.TransactionTypes.First(x => x.Name == "FailedDeadline");
             var transaction = new Transaction
             {
-                Type = transactionType, Claim = claim, Comment = TransactionComments.FailedDeadline(claim), 
+                Type = transactionType, Claim = claim, Comment = TransactionComments.FailedDeadline(claim),
                 Date = DateTime.Now, Learner = claim.Learner, Sum = response.fine ?? 0
             };
             _context.Transactions.Add(transaction);
@@ -214,19 +214,19 @@ public class ClaimController : ControllerBase
             var transactionType = _context.TransactionTypes.First(x => x.Name == "SellLot");
             var transaction = new Transaction
             {
-                Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim), 
+                Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim),
                 Date = DateTime.Now, Learner = claim.Receiver, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Receiver.Balance += claim.Sum ?? 0;
         }
-        
+
         if (claim.Type.Name == "BuyingLot" && response.action == "Reject")
         {
             var transactionType = _context.TransactionTypes.First(x => x.Name == "BuyLot");
             var transaction = new Transaction
             {
-                Type = transactionType, Claim = claim, Comment = TransactionComments.ReturnLot(claim), 
+                Type = transactionType, Claim = claim, Comment = TransactionComments.ReturnLot(claim),
                 Date = DateTime.Now, Learner = claim.Learner, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
@@ -255,24 +255,25 @@ public class ClaimController : ControllerBase
             var transactionType = _context.TransactionTypes.First(x => x.Name == "TransferIncome");
             var transaction = new Transaction
             {
-                Type = transactionType, Claim = claim, Comment = TransactionComments.TransferIncome(claim), 
+                Type = transactionType, Claim = claim, Comment = TransactionComments.TransferIncome(claim),
                 Date = DateTime.Now, Learner = claim.Receiver, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Receiver.Balance += claim.Sum ?? 0;
         }
-        
+
         if (claim.Type.Name == "Transfer" && response.action == "Reject")
         {
             var transactionType = _context.TransactionTypes.First(x => x.Name == "TransferOutcome");
             var transaction = new Transaction
             {
-                Type = transactionType, Claim = claim, Comment = TransactionComments.TransferOutcomeReject(claim), 
+                Type = transactionType, Claim = claim, Comment = TransactionComments.TransferOutcomeReject(claim),
                 Date = DateTime.Now, Learner = claim.Learner, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Learner.Balance += claim.Sum ?? 0;
         }
+
         _context.SaveChanges();
         return new OkResult();
     }
@@ -299,5 +300,38 @@ public class ClaimController : ControllerBase
             .Include(x => x.Status)
             .First(x => x.Id == id);
         return new OkObjectResult(new ClaimInfoDTO(claim));
+    }
+
+    /// <summary>
+    /// Get number of new claims by type
+    /// </summary>
+    /// <returns>The response contains an array of objects, each of which corresponds to one of the request types and contains the number of requests of this type with the status = Waiting.</returns>
+    [HttpGet("/admin/claims/new-amount")]
+    [Authorize(Roles = Roles.Admin)]
+    public IActionResult getWaitingClaimsAmount()
+    {
+        return new OkObjectResult(_context.ClaimTypes.Select(claimType => new
+        {
+            claimType = claimType.Name,
+            amount = _context.Claim.Count(x => x.Type == claimType && x.Status.Name == "Waiting")
+        }));
+    }
+
+    [HttpGet("/learner/claims")]
+    [Authorize(Roles = Roles.Learner)]
+    public IActionResult getLearnerClaims(string? claimType, string? claimStatus, string? dateFrom, string? dateTo,
+        string? sortProperty, string? sortOrder, int? page, int? pageSize)
+    {
+        if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
+        {
+            return new BadRequestResult();
+        } 
+        if (!_context.Learner.Any(x => x.Id == learnerId))
+        {
+            return new UnauthorizedResult();
+        }
+
+        // TODO: Finish method.
+        return new OkResult();
     }
 }
