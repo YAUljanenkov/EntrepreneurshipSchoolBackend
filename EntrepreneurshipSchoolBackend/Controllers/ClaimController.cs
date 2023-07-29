@@ -220,7 +220,7 @@ public class ClaimController : ControllerBase
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.FailedDeadline(claim),
-                Date = DateTime.Now.ToUniversalTime(), Learner = claim.Learner, Sum = response.fine ?? 0
+                Date = DateTime.Now.ToUniversalTime(), Learner = claim.Learner, Sum = -response.fine ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Learner.Balance += response.fine ?? 0;
@@ -520,7 +520,7 @@ public class ClaimController : ControllerBase
                 Date = DateTime.Now.ToUniversalTime(),
                 Learner = learner,
                 Comment = TransactionComments.BuyLot(claim),
-                Sum = lot.Price
+                Sum = -lot.Price
             };
 
             learner.Balance -= lot.Price;
@@ -592,7 +592,7 @@ public class ClaimController : ControllerBase
                 Date = DateTime.Now.ToUniversalTime(),
                 Learner = learner,
                 Comment = TransactionComments.TransferOutcome(claim),
-                Sum = newClaim.sum ?? 0
+                Sum = -newClaim.sum ?? 0
             };
 
             learner.Balance -= newClaim.sum ?? 0;
