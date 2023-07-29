@@ -6,7 +6,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("Lessons")]
     public class Lesson
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
+        [Key] public int Id { get; set; }
 
         [Required] public int Number { get; set; }
 
@@ -19,5 +19,6 @@ namespace EntrepreneurshipSchoolBackend.Models
         [Required, StringLength(256)] public string PresLink { get; set; } = String.Empty;
 
         [Required, StringLength(256)] public string VideoLink { get; set; } = String.Empty;
+        public virtual ICollection<Task> Tasks { get; set; }
     }
 }
