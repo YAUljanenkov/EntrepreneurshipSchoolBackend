@@ -15,7 +15,7 @@ public record ClaimInfoDTO
         claimType = claim.Type.Name;
         id = claim.Id;
         status = claim.Status.Name;
-        dateTime = claim.Date.ToString("dd.MM.yyyy HH:mm");
+        dateTime = claim.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
         if (claimType == "BuyingLot" && claim.Lot != null)
         {
             lot = new Lot(claim.Lot);
@@ -82,7 +82,7 @@ public record ClaimInfoDTO
         {
             lesson = new Lesson(claim.Task.Lesson.Id, claim.Task.Lesson.Number);
             task = new Task(claim.Task.Id, claim.Task.Title);
-            deadlineTime = claim.Task.Deadline.ToString("dd.MM.yyyy HH:mm");
+            deadlineTime = claim.Task.Deadline.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
         }
     }
 }

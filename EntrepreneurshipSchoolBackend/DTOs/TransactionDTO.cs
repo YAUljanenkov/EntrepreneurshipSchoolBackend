@@ -24,7 +24,7 @@ public record class TransactionDTO
         );
         this.type = transaction.Type.Name;
         this.description = transaction.Comment;
-        this.dateTime = transaction.Date.ToString("dd.MM.yyyy HH:mm:ss");
+        this.dateTime = transaction.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
         this.sum = transaction.Sum;
         if (transaction.Claim != null)
         {

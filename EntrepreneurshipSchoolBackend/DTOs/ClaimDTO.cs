@@ -34,7 +34,7 @@ public record ClaimDTO
             this.task = new Task(claim.Task.Id, claim.Task.Title);
         }
 
-        dateTime = claim.Date.ToString("dd.MM.yyyy HH:mm:ss");
+        dateTime = claim.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
         status = claim.Status.Name;
         if (claim.Sum != null)
         {
