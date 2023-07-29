@@ -173,6 +173,7 @@ public class TransactionController : ControllerBase
         };
 
         _context.Transactions.Add(newTransaction);
+        learner.Balance += transaction.sum;
         _context.SaveChanges();
         return new OkResult();
     }

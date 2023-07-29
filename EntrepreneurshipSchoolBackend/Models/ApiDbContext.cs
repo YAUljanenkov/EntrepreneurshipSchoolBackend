@@ -3,11 +3,46 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
 namespace EntrepreneurshipSchoolBackend.Models;
+
 public class ApiDbContext : DbContext
 {
-    public ApiDbContext(DbContextOptions<ApiDbContext> options): base(options)
+    public ApiDbContext(DbContextOptions<ApiDbContext> options) : base(options)
     {
+        this.Database?.EnsureCreated();
+        if (!Admins.Any(x => x.EmailLogin == "admin"))
+        {
+            Admins.Add(new Admin
+                { EmailLogin = "admin", Password = Controllers.AuthController.HashPassword("password") });
+        }
+
+        if (TransactionTypes.Count() != 8)
+        {
+            TransactionTypes.RemoveRange(TransactionTypes);
+            TransactionTypes.AddRange(new TransactionType { Name = "Activity" },
+                new TransactionType { Name = "SellLot" }, new TransactionType { Name = "AdminIncome" },
+                new TransactionType { Name = "TransferIncome" }, new TransactionType { Name = "FailedDeadline" },
+                new TransactionType { Name = "BuyLot" }, new TransactionType { Name = "AdminOutcome" },
+                new TransactionType { Name = "TransferOutcome" });
+        }
+        
+        if (ClaimTypes.Count() != 4)
+        {
+            ClaimTypes.RemoveRange(ClaimTypes);
+            ClaimTypes.AddRange(new ClaimType { Name = "BuyingLot" },
+                new ClaimType { Name = "FailedDeadline" }, new ClaimType { Name = "PlacingLot" },
+                new ClaimType { Name = "Transfer" });
+        }
+        
+        if (ClaimStatuses.Count() != 3)
+        {
+            ClaimStatuses.RemoveRange(ClaimStatuses);
+            ClaimStatuses.AddRange(new ClaimStatus { Name = "Waiting" },
+                new ClaimStatus { Name = "Approved" }, new ClaimStatus { Name = "Declined" });
+        }
+
+        SaveChanges();
     }
+
     public DbSet<Admin> Admins { get; set; }
     public DbSet<AssessmentsType> AssessmentsTypes { get; set; }
     public DbSet<Assessments> Assessments { get; set; }
@@ -27,7 +62,7 @@ public class ApiDbContext : DbContext
     public DbSet<Transaction?> Transactions { get; set; }
     public DbSet<TransactionType> TransactionTypes { get; set; }
 
-    public DbSet<UserFile> UserFiles { get; set; } 
+    public DbSet<UserFile> UserFiles { get; set; }
 
     public void CheckAndCreate(IType obj, double weight)
     {
@@ -35,7 +70,8 @@ public class ApiDbContext : DbContext
         {
             TransactionType? found = TransactionTypes.FirstOrDefault(rec => obj.Name == rec.Name);
 
-            if(found != null) {
+            if (found != null)
+            {
                 return;
             }
 
@@ -66,7 +102,7 @@ public class ApiDbContext : DbContext
         {
             ClaimType? found = ClaimTypes.FirstOrDefault(rec => obj.Name == rec.Name);
 
-            if(found != null)
+            if (found != null)
             {
                 return;
             }
@@ -82,7 +118,7 @@ public class ApiDbContext : DbContext
         {
             AssessmentsType? found = AssessmentsTypes.FirstOrDefault(rec => obj.Name == rec.Name);
 
-            if(found != null)
+            if (found != null)
             {
                 return;
             }
@@ -111,9 +147,12 @@ public class ApiDbContext : DbContext
             FinalTypes.Add(found);
         }
     }
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
+        foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
+        {
+            relationship.DeleteBehavior = DeleteBehavior.Restrict;
+        }
     }
 }

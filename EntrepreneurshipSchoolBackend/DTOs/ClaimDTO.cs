@@ -57,7 +57,7 @@ public record ClaimDTO
             this.name = $"{learner.Surname} {learner.Name} {learner.Lastname}";
         }
 
-        public int id { get; init; }
-        public string name { get; init; }
+        public int id { get; }
+        public string name { get; }
     }
 }
