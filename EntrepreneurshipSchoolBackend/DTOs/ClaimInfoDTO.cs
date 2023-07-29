@@ -16,10 +16,10 @@ public record ClaimInfoDTO
         id = claim.Id;
         status = claim.Status.Name;
         dateTime = claim.Date.ToString("dd.MM.yyyy HH:mm");
-        if (claimType == "BuyingLot" && claim.Lot != null && claim.Receiver != null)
+        if (claimType == "BuyingLot" && claim.Lot != null)
         {
             lot = new Lot(claim.Lot);
-            learner = new Learner(claim.Receiver);
+            learner = new Learner(claim.Learner);
         }
         if (claimType == "FailedDeadline" && claim.Task != null )
         {
@@ -43,7 +43,7 @@ public record ClaimInfoDTO
         public string title { get; }
         public string description { get; }
         public string terms { get; }
-        public Learner performer { get; }
+        public string performer { get; }
         public Lot(Models.Lot lot)
         {
             id = lot.Id;
@@ -51,16 +51,19 @@ public record ClaimInfoDTO
             title = lot.Title;
             description = lot.Description;
             terms = lot.Terms;
-            performer = new Learner(lot.Learner);
+            performer = lot.Performer;
         }
     }
     
     public record Learner
     {
-        public Learner(Models.Learner learner)
+        public Learner(Models.Learner? learner)
         {
-            this.id = learner.Id;
-            this.name = $"{learner.Surname} {learner.Name} {learner.Lastname}";
+            if (learner != null)
+            {
+                this.id = learner.Id;
+                this.name = $"{learner.Surname} {learner.Name} {learner.Lastname}";
+            }
         }
 
         public int id { get; }

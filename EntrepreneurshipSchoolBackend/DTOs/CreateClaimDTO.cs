@@ -1,13 +1,4 @@
 namespace EntrepreneurshipSchoolBackend.DTOs;
 
-public record CreateClaimDTO
-{
-    public string claimType { get; }
-
-    public Lot? lot { get; }
-    public int? buyingLotId { get; }
-    public int? receiverId { get; }
-    public int? sum { get; }
-
-    public record Lot(string name, string desciption, string terms, int price);
-}
+public record LotDTO(string name, string description, string terms, int price);
+public record CreateClaimDTO(string claimType, LotDTO? lot, int? buyingLotId, int? receiverId, int? sum);

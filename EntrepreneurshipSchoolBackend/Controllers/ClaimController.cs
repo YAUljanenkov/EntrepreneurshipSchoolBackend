@@ -100,6 +100,10 @@ public class ClaimController : ControllerBase
         var query = _context.Claim
             .Include(x => x.Learner)
             .Include(x => x.Type)
+            .Include(x => x.Status)
+            .Include(x => x.Lot)
+            .Include(x => x.Receiver)
+            .Include(x => x.Task)
             .Where(x => x.Type.Name == claimType)
             .Where(x => claimStatus == null || x.Status.Name == claimStatus)
             .Where(x => dateFromValue == DateTime.MinValue || dateFromValue < x.Date)
@@ -190,7 +194,20 @@ public class ClaimController : ControllerBase
             return new NotFoundObjectResult("Claim not found.");
         }
 
-        var claim = _context.Claim.First(x => x.Id == response.id);
+        var claim = _context.Claim
+            .Include(x => x.Type)
+            .Include(x => x.Learner)
+            .Include(x => x.Status)
+            .Include(x => x.Task)
+            .Include(x => x.Receiver)
+            .Include(x => x.Lot)
+            .First(x => x.Id == response.id);
+
+        if (claim.Status.Name != "Waiting")
+        {
+            return new ObjectResult("Claim already approved or rejected.") { StatusCode = 409 };
+        }
+        
         var status = response.action == "Approve"
             ? _context.ClaimStatuses.First(x => x.Name == "Approved")
             : _context.ClaimStatuses.First(x => x.Name == "Declined");
@@ -203,7 +220,7 @@ public class ClaimController : ControllerBase
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.FailedDeadline(claim),
-                Date = DateTime.Now, Learner = claim.Learner, Sum = response.fine ?? 0
+                Date = DateTime.Now.ToUniversalTime(), Learner = claim.Learner, Sum = response.fine ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Learner.Balance += response.fine ?? 0;
@@ -212,15 +229,18 @@ public class ClaimController : ControllerBase
         if (claim.Type.Name == "BuyingLot" && response.action == "Approve")
         {
             var transactionType = _context.TransactionTypes.First(x => x.Name == "SellLot");
-            if (claim.Lot != null && claim.Lot.Learner != null)
+            if (claim.Lot != null)
             {
-                var transaction = new Transaction
-                {
-                    Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim),
-                    Date = DateTime.Now, Learner = claim.Lot.Learner, Sum = claim.Sum ?? 0
-                };
-                _context.Transactions.Add(transaction);
-                claim.Lot.Learner.Balance += claim.Sum ?? 0;
+                var lotLearner = _context.Lots.Include(x => x.Learner).First(x => claim.Lot.Id == x.Id).Learner;
+                if (lotLearner != null) {
+                    var transaction = new Transaction
+                    {
+                        Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim),
+                        Date = DateTime.Now.ToUniversalTime(), Learner = lotLearner, Sum = claim.Sum ?? 0
+                    };
+                    _context.Transactions.Add(transaction);
+                    lotLearner.Balance += claim.Sum ?? 0;
+                }
             }
         }
 
@@ -230,7 +250,7 @@ public class ClaimController : ControllerBase
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.ReturnLot(claim),
-                Date = DateTime.Now, Learner = claim.Learner, Sum = claim.Sum ?? 0
+                Date = DateTime.Now.ToUniversalTime(), Learner = claim.Learner, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Learner.Balance += claim.Sum ?? 0;
@@ -259,7 +279,7 @@ public class ClaimController : ControllerBase
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.TransferIncome(claim),
-                Date = DateTime.Now, Learner = claim.Receiver, Sum = claim.Sum ?? 0
+                Date = DateTime.Now.ToUniversalTime(), Learner = claim.Receiver, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Receiver.Balance += claim.Sum ?? 0;
@@ -271,7 +291,7 @@ public class ClaimController : ControllerBase
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.TransferOutcomeReject(claim),
-                Date = DateTime.Now, Learner = claim.Learner, Sum = claim.Sum ?? 0
+                Date = DateTime.Now.ToUniversalTime(), Learner = claim.Learner, Sum = claim.Sum ?? 0
             };
             _context.Transactions.Add(transaction);
             claim.Learner.Balance += claim.Sum ?? 0;
@@ -301,6 +321,7 @@ public class ClaimController : ControllerBase
             .Include(x => x.Type)
             .Include(x => x.Task)
             .Include(x => x.Status)
+            .Include(x => x.Lot)
             .First(x => x.Id == id);
         return new OkObjectResult(new ClaimInfoDTO(claim));
     }
@@ -336,8 +357,104 @@ public class ClaimController : ControllerBase
             return new UnauthorizedResult();
         }
 
-        // TODO: Finish method.
-        return new OkResult();
+        var learner = _context.Learner.First(x => x.Id == learnerId);
+
+        if (claimType != null && !new[] { "BuyingLot", "FailedDeadline", "PlacingLot", "Transfer" }.Contains(claimType))
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        if (claimStatus != null && !new[] { "Waiting", "Approved", "Declined" }.Contains(claimStatus))
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        DateTime dateFromValue = DateTime.MinValue, dateToValue = DateTime.MinValue;
+        var ruRU = new CultureInfo("ru-RU");
+
+        if (dateFrom != null &&
+            !DateTime.TryParseExact(dateFrom, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateFromValue))
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        dateFromValue = dateFromValue.ToUniversalTime();
+        if (dateTo != null && !DateTime.TryParseExact(dateTo, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateToValue))
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        dateToValue = dateToValue.ToUniversalTime();
+        if (sortProperty != null &&
+            !new[] { "id", "learner", "name", "datetime", "date", "claimStatus", "sum" }.Contains(
+                sortProperty.ToLower()))
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        if (sortOrder != null && sortOrder is not ("asc" or "desc"))
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        if (page is < 1)
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        if (pageSize is < 1)
+        {
+            return new BadRequestObjectResult("Incorrect parameters.");
+        }
+
+        var query = _context.Claim
+            .Include(x => x.Learner)
+            .Include(x => x.Type)
+            .Include(x => x.Status)
+            .Include(x => x.Lot)
+            .Where(x => x.Learner == learner)
+            .Where(x => claimType == null || x.Type.Name == claimType)
+            .Where(x => claimStatus == null || x.Status.Name == claimStatus)
+            .Where(x => dateFromValue == DateTime.MinValue || dateFromValue < x.Date)
+            .Where(x => dateToValue == DateTime.MinValue || dateToValue > x.Date);
+
+        
+        query = sortProperty?.ToLower() switch
+        {
+            "id" => sortOrder == "desc" ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id),
+            "date" or "datetime" => sortOrder == "desc"
+                ? query.OrderByDescending(x => x.Date)
+                : query.OrderBy(x => x.Date),
+            "sum" => sortOrder == "desc" ? query.OrderByDescending(x => x.Sum) : query.OrderBy(x => x.Sum),
+            "claimStatus" => sortOrder == "desc"
+                ? query.OrderByDescending(x => x.Status.Name)
+                : query.OrderBy(x => x.Type.Name),
+            "learner" or "name" => sortOrder == "desc"
+                ? query.OrderByDescending(x => x.Learner.Surname).ThenByDescending(x => x.Learner.Name)
+                    .ThenByDescending(x => x.Learner.Lastname)
+                : query.OrderBy(x => x.Learner.Surname).ThenBy(x => x.Learner.Name).ThenBy(x => x.Learner.Lastname),
+            _ => query
+        };
+
+        var size = query.Count();
+
+        var result = new
+        {
+            pagination = new
+            {
+                page = page ?? 1,
+                pageSize = pageSize ?? 10,
+                totalPages = Math.Ceiling(size / (double)(pageSize ?? 10)),
+                totalElements = size
+            },
+            content = query
+                .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
+                .Take(pageSize ?? 10)
+                .AsEnumerable()
+                .Select(x => new ClaimDTO(x))
+        };
+
+        return new OkObjectResult(result);
     }
 
     /// <summary>
@@ -388,13 +505,19 @@ public class ClaimController : ControllerBase
                 Type = claimType,
                 Status = claimStatus,
                 Sum = lot.Price,
-                Date = DateTime.Now
+                Date = DateTime.Now.ToUniversalTime()
             };
 
+            if (lot.Price > learner.Balance)
+            {
+                return new ObjectResult("Not enough money") { StatusCode = 403 };
+            }
+            var transactionType = _context.TransactionTypes.First(x => x.Name == "BuyLot");
             var transaction = new Transaction
             {
+                Type = transactionType,
                 Claim = claim,
-                Date = DateTime.Now,
+                Date = DateTime.Now.ToUniversalTime(),
                 Learner = learner,
                 Comment = TransactionComments.BuyLot(claim),
                 Sum = lot.Price
@@ -419,12 +542,12 @@ public class ClaimController : ControllerBase
             {
                 Learner = learner,
                 Title = newClaim.lot.name,
-                Description = newClaim.lot.desciption,
+                Description = newClaim.lot.description,
                 Terms = newClaim.lot.terms,
                 Sum = newClaim.lot.price,
                 Type = claimType,
                 Status = claimStatus,
-                Date = DateTime.Now
+                Date = DateTime.Now.ToUniversalTime()
             };
 
             _context.Claim.Add(claim);
@@ -442,6 +565,11 @@ public class ClaimController : ControllerBase
             {
                 return new NotFoundObjectResult("Receiver not found.");
             }
+            
+            if (newClaim.sum > learner.Balance)
+            {
+                return new ObjectResult("Not enough money") { StatusCode = 403 };
+            }
 
             var receiver = _context.Learner.First(x => x.Id == newClaim.receiverId);
 
@@ -453,11 +581,24 @@ public class ClaimController : ControllerBase
                 Sum = newClaim.sum,
                 Type = claimType,
                 Status = claimStatus,
-                Date = DateTime.Now,
+                Date = DateTime.Now.ToUniversalTime(),
                 Receiver = receiver
             };
+            var transactionType = _context.TransactionTypes.First(x => x.Name == "TransferOutcome");
+            var transaction = new Transaction
+            {
+                Type = transactionType,
+                Claim = claim,
+                Date = DateTime.Now.ToUniversalTime(),
+                Learner = learner,
+                Comment = TransactionComments.TransferOutcome(claim),
+                Sum = newClaim.sum ?? 0
+            };
+
+            learner.Balance -= newClaim.sum ?? 0;
 
             _context.Claim.Add(claim);
+            _context.Transactions.Add(transaction);
             _context.SaveChanges();
         }
 
