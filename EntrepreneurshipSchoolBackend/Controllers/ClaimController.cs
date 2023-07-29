@@ -212,13 +212,16 @@ public class ClaimController : ControllerBase
         if (claim.Type.Name == "BuyingLot" && response.action == "Approve")
         {
             var transactionType = _context.TransactionTypes.First(x => x.Name == "SellLot");
-            var transaction = new Transaction
+            if (claim.Lot != null && claim.Lot.Learner != null)
             {
-                Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim),
-                Date = DateTime.Now, Learner = claim.Receiver, Sum = claim.Sum ?? 0
-            };
-            _context.Transactions.Add(transaction);
-            claim.Receiver.Balance += claim.Sum ?? 0;
+                var transaction = new Transaction
+                {
+                    Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim),
+                    Date = DateTime.Now, Learner = claim.Lot.Learner, Sum = claim.Sum ?? 0
+                };
+                _context.Transactions.Add(transaction);
+                claim.Lot.Learner.Balance += claim.Sum ?? 0;
+            }
         }
 
         if (claim.Type.Name == "BuyingLot" && response.action == "Reject")
@@ -317,6 +320,7 @@ public class ClaimController : ControllerBase
         }));
     }
 
+
     [HttpGet("/learner/claims")]
     [Authorize(Roles = Roles.Learner)]
     public IActionResult getLearnerClaims(string? claimType, string? claimStatus, string? dateFrom, string? dateTo,
@@ -325,13 +329,138 @@ public class ClaimController : ControllerBase
         if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
         {
             return new BadRequestResult();
-        } 
+        }
+
         if (!_context.Learner.Any(x => x.Id == learnerId))
         {
             return new UnauthorizedResult();
         }
 
         // TODO: Finish method.
+        return new OkResult();
+    }
+
+    /// <summary>
+    /// Create claim by user.
+    /// </summary>
+    /// <param name="newClaim">Object with new claim data.</param>
+    /// <returns>200</returns>
+    [HttpPost("/learner/claims")]
+    [Authorize(Roles = Roles.Learner)]
+    public IActionResult createClaim(CreateClaimDTO newClaim)
+    {
+        if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
+        {
+            return new BadRequestResult();
+        }
+
+        if (!_context.Learner.Any(x => x.Id == learnerId))
+        {
+            return new UnauthorizedResult();
+        }
+
+        var learner = _context.Learner.First(x => x.Id == learnerId);
+
+        if (!new[] { "BuyingLot", "PlacingLot", "Transfer" }.Contains(newClaim.claimType))
+        {
+            return new BadRequestObjectResult("Some of the crucial properties have not been specified");
+        }
+
+        var claimStatus = _context.ClaimStatuses.First(x => x.Name == "Waiting");
+        if (newClaim.claimType == "BuyingLot")
+        {
+            if (newClaim.buyingLotId == null)
+            {
+                return new BadRequestObjectResult("Some of the crucial properties have not been specified");
+            }
+
+            if (!_context.Lots.Any(x => x.Id == newClaim.buyingLotId))
+            {
+                return new NotFoundObjectResult("Lot not found.");
+            }
+
+            var lot = _context.Lots.First(x => x.Id == newClaim.buyingLotId);
+            var claimType = _context.ClaimTypes.First(x => x.Name == "BuyingLot");
+            var claim = new Claim
+            {
+                Learner = learner,
+                Lot = lot,
+                Type = claimType,
+                Status = claimStatus,
+                Sum = lot.Price,
+                Date = DateTime.Now
+            };
+
+            var transaction = new Transaction
+            {
+                Claim = claim,
+                Date = DateTime.Now,
+                Learner = learner,
+                Comment = TransactionComments.BuyLot(claim),
+                Sum = lot.Price
+            };
+
+            learner.Balance -= lot.Price;
+
+            _context.Claim.Add(claim);
+            _context.Transactions.Add(transaction);
+            _context.SaveChanges();
+        }
+
+        if (newClaim.claimType == "PlacingLot")
+        {
+            if (newClaim.lot == null)
+            {
+                return new BadRequestObjectResult("Some of the crucial properties have not been specified");
+            }
+
+            var claimType = _context.ClaimTypes.First(x => x.Name == "PlacingLot");
+            var claim = new Claim
+            {
+                Learner = learner,
+                Title = newClaim.lot.name,
+                Description = newClaim.lot.desciption,
+                Terms = newClaim.lot.terms,
+                Sum = newClaim.lot.price,
+                Type = claimType,
+                Status = claimStatus,
+                Date = DateTime.Now
+            };
+
+            _context.Claim.Add(claim);
+            _context.SaveChanges();
+        }
+
+        if (newClaim.claimType == "Transfer")
+        {
+            if (newClaim.receiverId == null || newClaim.sum == null)
+            {
+                return new BadRequestObjectResult("Some of the crucial properties have not been specified");
+            }
+
+            if (!_context.Learner.Any(x => x.Id == newClaim.receiverId))
+            {
+                return new NotFoundObjectResult("Receiver not found.");
+            }
+
+            var receiver = _context.Learner.First(x => x.Id == newClaim.receiverId);
+
+            var claimType = _context.ClaimTypes.First(x => x.Name == "Transfer");
+
+            var claim = new Claim
+            {
+                Learner = learner,
+                Sum = newClaim.sum,
+                Type = claimType,
+                Status = claimStatus,
+                Date = DateTime.Now,
+                Receiver = receiver
+            };
+
+            _context.Claim.Add(claim);
+            _context.SaveChanges();
+        }
+
         return new OkResult();
     }
 }
