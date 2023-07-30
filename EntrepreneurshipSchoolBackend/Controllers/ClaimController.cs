@@ -340,8 +340,19 @@ public class ClaimController : ControllerBase
             amount = _context.Claim.Count(x => x.Type == claimType && x.Status.Name == "Waiting")
         }));
     }
-
-
+    
+    /// <summary>
+    /// Get list of claims by filter and sort.
+    /// </summary>
+    /// <param name="claimType">Search claim type. Available values : BuyingLot, FailedDeadline, PlacingLot, Transfer</param>
+    /// <param name="claimStatus">Search claim status. Available values : Waiting, Approved, Declined</param>
+    /// <param name="dateFrom">The beginning of the desired interval</param>
+    /// <param name="dateTo">The end of the desired interval</param>
+    /// <param name="sortProperty">Property of response to sort by. Available values : id, learner or name, datetime or date, claimStatus, sum</param>
+    /// <param name="sortOrder">Sorting order. Available values : asc, desc</param>
+    /// <param name="page">Page number</param>
+    /// <param name="pageSize">The size of the page to be returned</param>
+    /// <returns>list of claims with pagination info.</returns>
     [HttpGet("/learner/claims")]
     [Authorize(Roles = Roles.Learner)]
     public IActionResult getLearnerClaims(string? claimType, string? claimStatus, string? dateFrom, string? dateTo,
