@@ -168,6 +168,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 {
                     return BadRequest("not id of homework");
                 }
+                if (homework != null && homework.Lesson != null)
+                {
+                    return BadRequest("homework is already bounded");
+                }
                 if (homework != null)
                 {
                     homework.Lesson = newLesson;
@@ -179,6 +183,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 if (test != null && test.Type.Name != "Testing")
                 {
                     return BadRequest("not id of test");
+                }
+                if (test != null && test.Lesson != null)
+                {
+                    return BadRequest("test is already bounded");
                 }
                 if (test != null)
                 {
@@ -229,6 +237,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 {
                     return BadRequest("not id of homework");
                 }
+                if (homework != null && homework.Lesson != null && homework.Lesson.Id != lesson.id)
+                {
+                    return BadRequest("homework is already bounded");
+                }
                 if (homework != null)
                 {
                     homework.Lesson = les;
@@ -240,6 +252,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 if (test != null && test.Type.Name != "Testing")
                 {
                     return BadRequest("not id of test");
+                }
+                if (test != null && test.Lesson != null && test.Lesson.Id != lesson.id)
+                {
+                    return BadRequest("homework is already bounded");
                 }
                 if (test != null)
                 {
