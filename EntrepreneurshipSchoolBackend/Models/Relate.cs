@@ -10,8 +10,8 @@ namespace EntrepreneurshipSchoolBackend.Models
     {
         public int LearnerId { get; set; }
         public int GroupId { get; set; }
-        public Learner? Learner { get; set; }
-        public Group? Group { get; set; }
+        public virtual Learner Learner { get; set; }
+        public virtual Group Group { get; set; }
 
     }
 }

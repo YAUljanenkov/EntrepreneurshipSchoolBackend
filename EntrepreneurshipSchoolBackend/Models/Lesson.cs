@@ -19,5 +19,6 @@ namespace EntrepreneurshipSchoolBackend.Models
         [Required, StringLength(256)] public string PresLink { get; set; } = String.Empty;
 
         [Required, StringLength(256)] public string VideoLink { get; set; } = String.Empty;
+        public virtual ICollection<Task> Tasks { get; set; }
     }
 }
