@@ -6,7 +6,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("Groups")]
     public class Group
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
+        [Key] public int Id { get; set; }
 
         [Required] public int Number { get; set; }
 

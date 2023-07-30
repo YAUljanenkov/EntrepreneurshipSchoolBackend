@@ -17,7 +17,7 @@ public class ApiDbContext : DbContext
     public DbSet<ClaimType> ClaimTypes { get; set; }
     public DbSet<FinalGradeType> FinalTypes { get; set; }
     public DbSet<Group> Groups { get; set; }
-    public DbSet<Learner> Learner { get; set; }
+    public DbSet<Learner> Learners { get; set; }
     public DbSet<Lesson> Lessons { get; set; }
     public DbSet<Lot> Lots { get; set; }
     public DbSet<Relate> Relates { get; set; }
