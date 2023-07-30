@@ -23,7 +23,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/teams")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeams([FromBody] TeamsComplexRequest request)
         {
             var relevant_data = from m in _context.Groups
@@ -95,7 +95,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpPost("/admin/teams")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> CreateTeam([FromBody] TeamRequest team)
         {
             if (team.id == null)
@@ -148,7 +148,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
         
         [HttpPut("/admin/teams")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> UpdateTeam([FromBody] TeamRequest team)
         {
             if (team.id == null)
@@ -203,7 +203,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/teams/{id}")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeamData(int id)
         {
             Models.Group? team = await _context.Groups.FindAsync(id);
@@ -238,6 +238,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/teams/{id}")]
+        [Authorize]
         public async Task<ActionResult> GetPublicTeamInfo(int id)
         {
             Models.Group? team = await _context.Groups.FindAsync(id);
@@ -271,7 +272,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpDelete("/admin/teams/{id}")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> DeleteTeam(int id)
         {
             Models.Group? team = await _context.Groups.FindAsync(id);
@@ -288,7 +289,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/teams/select")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeamListByRole()
         {
             var relevant_data = from m in _context.Groups

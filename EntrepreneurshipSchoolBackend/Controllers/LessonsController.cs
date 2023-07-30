@@ -264,6 +264,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/lessons")]
+        [Authorize]
         public async Task<ActionResult> GetLessonsPublicList()
         {
             var relevant_data = from m in _context.Lessons
@@ -320,6 +321,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/lessons/{id}")]
+        [Authorize]
         public async Task<ActionResult> GetLessonById(int id)
         {
             Models.Lesson? les = _context.Lessons.Include(x => x.Tasks).FirstOrDefault(x => x.Id == id);

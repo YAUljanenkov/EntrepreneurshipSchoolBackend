@@ -25,7 +25,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/accounts")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetAccounts([FromBody] AccountsComplexRequest request)
         {
             var relevant_data = from m in _context.Learners
@@ -150,7 +150,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpPost("/admin/accounts")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> CreateAccount([FromBody] UserRequest user)
         {
             List<string> same_properties = new List<string>();
@@ -207,7 +207,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpPut("/admin/accounts")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> UpdateAccount([FromBody] UserRequest user)
         {
             if (user.id == null)
@@ -243,6 +243,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/accounts/{id}")]
+        [Authorize]
         public async Task<ActionResult> GetAccountPublicData(int id)
         {
             Models.Learner? acc = await _context.Learners.FindAsync(id);
@@ -269,6 +270,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/accounts/balance-name")]
+        [Authorize(Roles = Roles.Learner)]
         public async Task<ActionResult> GetAccountBalance()
         {
             string? string_id = HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value;
@@ -286,7 +288,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpDelete("/admin/accounts/{id}")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> DeleteAccount(int id)
         {
             Models.Learner? acc = await _context.Learners.FindAsync(id);
@@ -303,7 +305,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/accounts/select")]
-        //[Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetAccListByRole([FromBody] string? role)
         {
             if (role == null)
