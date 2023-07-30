@@ -28,38 +28,16 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetAccounts([FromBody] AccountsComplexRequest request)
         {
-            var relevant_data = from m in _context.Learners
-                                select m;
-            if (request.name != null)
-            {
-                string surname = request.name.Split()[0];
-                string name = request.name.Split()[1];
-                relevant_data = from m in relevant_data
-                                where m.Name.Equals(name) && m.Surname.Equals(surname)
-                                select m;
-            }
-            if (request.email != null)
-            {
-                relevant_data = from m in relevant_data
-                                where m.EmailLogin.Equals(request.email)
-                                select m;
-            }
-            if (request.role != null)
-            {
-
-                char role = request.role == "Learner" ? '0' : '1';
-                relevant_data = from m in relevant_data
-                                where m.IsTracker == role
-                                select m;
+            var relevant_data = _context.Learners
+            .Include(x => x.Relate)
+            .Where(x => request.name == null || x.Name.Equals(request.name.Split()[1])
+            && x.Surname.Equals(request.name.Split()[0]))
+            .Where(x=> request.email == null || x.EmailLogin == request.email)
+            .Where(x=> request.role == null || x.IsTracker == (request.role == "Learner" ? '0' : '1'))
+            .Where(x=> request.team == null || x.Relate.Any(m => m.Group != null && m.Group.Number == request.team))
+            .ToList();
+            ;
             
-            }
-            if (request.team != null)
-            {
-                relevant_data = from m in relevant_data
-                                where m.Relate != null && m.Relate.Any(x => x.Group != null && x.Group.Number == request.team)
-                                select m;
-
-            }
             if (request.sortProperty != null)
             {
                 if (request.sortOrder == "desc")
@@ -146,6 +124,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             AccountComplexResponse response = new AccountComplexResponse();
             response.content = content;
             response.pagination = pagination;
+            await _context.SaveChangesAsync();
             return Ok(response);
         }
 
