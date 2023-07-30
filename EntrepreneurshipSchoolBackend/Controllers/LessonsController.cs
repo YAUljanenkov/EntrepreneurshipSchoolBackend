@@ -26,20 +26,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetLessons([FromBody] LessonComplexRequest request)
         {
-            var relevant_data = from m in _context.Lessons
-                                select m;
-            if (request.lessonNumber != null)
-            {
-                relevant_data = from m in relevant_data
-                                where m.Number == request.lessonNumber
-                                select m;
-            }
-            if (request.lessonTitle != null)
-            {
-                relevant_data = from m in relevant_data
-                                where m.Title.Equals(request.lessonTitle)
-                                select m;
-            }
+            var relevant_data = _context.Lessons
+            .Include(x => x.Tasks)
+            .Where(x => request.lessonNumber == null || x.Number.Equals(request.lessonNumber))
+            .Where(x => request.lessonTitle == null || x.Title == request.lessonTitle)
+            .ToList();
+            
             if (request.sortProperty != null)
             {
                 if (request.sortOrder == "desc")
