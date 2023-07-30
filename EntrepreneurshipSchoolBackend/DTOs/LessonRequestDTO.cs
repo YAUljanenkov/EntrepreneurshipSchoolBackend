@@ -4,7 +4,7 @@ namespace EntrepreneurshipSchoolBackend.DTOs
 {
     public class LessonRequest
     {
-        public int id { set; get; }
+        public int? id { set; get; }
         public int number { set; get; }
         public string title { set; get; }
         public string description { set; get; }
@@ -23,8 +23,8 @@ namespace EntrepreneurshipSchoolBackend.DTOs
         public string? sortProperty { set; get; }
         public string? sortOrder { set; get; }
         public bool pageable { set; get; }
-        public int page { set; get; } = 1;
-        public int pageSize { set; get; } = 10;
+        public int? page { set; get; } = 1;
+        public int? pageSize { set; get; } = 10;
     }
 
 }
