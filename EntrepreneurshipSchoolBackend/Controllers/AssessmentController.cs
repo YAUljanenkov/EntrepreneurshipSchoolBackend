@@ -633,7 +633,6 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             // Конструируем новый объект оценки по имеющимся данным.
             Assessments newAssessment = new Assessments();
 
-            newAssessment.Id = data.id;
             newAssessment.LearnerId = data.learnerId;
             newAssessment.Learner = _context.Learner.Find(data.learnerId);
             newAssessment.TaskId = data.taskId;

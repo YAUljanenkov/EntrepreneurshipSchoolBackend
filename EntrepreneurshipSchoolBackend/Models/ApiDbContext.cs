@@ -7,6 +7,7 @@ public class ApiDbContext : DbContext
 {
     public ApiDbContext(DbContextOptions<ApiDbContext> options): base(options)
     {
+        this.Database?.EnsureCreated();
     }
     public DbSet<Admin> Admins { get; set; }
     public DbSet<AssessmentsType> AssessmentsTypes { get; set; }
@@ -26,91 +27,7 @@ public class ApiDbContext : DbContext
     public DbSet<TaskType> TaskTypes { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<TransactionType> TransactionTypes { get; set; }
-
-    public DbSet<UserFile> UserFiles { get; set; } 
-
-    public void CheckAndCreate(IType obj, double weight)
-    {
-        if (obj.GetType() == new TransactionType().GetType())
-        {
-            TransactionType? found = TransactionTypes.FirstOrDefault(rec => obj.Name == rec.Name);
-
-            if(found != null) {
-                return;
-            }
-
-            found = new TransactionType();
-            found.Id = obj.Id;
-            found.Name = obj.Name;
-
-            TransactionTypes.Add(found);
-        }
-
-        if (obj.GetType() == new TaskType().GetType())
-        {
-            TaskType? found = TaskTypes.FirstOrDefault(rec => obj.Name == rec.Name);
-
-            if (found != null)
-            {
-                return;
-            }
-
-            found = new TaskType();
-            found.Id = obj.Id;
-            found.Name = obj.Name;
-
-            TaskTypes.Add(found);
-        }
-
-        if (obj.GetType() == new ClaimType().GetType())
-        {
-            ClaimType? found = ClaimTypes.FirstOrDefault(rec => obj.Name == rec.Name);
-
-            if(found != null)
-            {
-                return;
-            }
-
-            found = new ClaimType();
-            found.Id = obj.Id;
-            found.Name = obj.Name;
-
-            ClaimTypes.Add(found);
-        }
-
-        if (obj.GetType() == new AssessmentsType().GetType())
-        {
-            AssessmentsType? found = AssessmentsTypes.FirstOrDefault(rec => obj.Name == rec.Name);
-
-            if(found != null)
-            {
-                return;
-            }
-
-            found = new AssessmentsType();
-            found.Id = obj.Id;
-            found.Name = obj.Name;
-
-            AssessmentsTypes.Add(found);
-        }
-
-        if (obj.GetType() == new FinalGradeType().GetType())
-        {
-            FinalGradeType? found = FinalTypes.FirstOrDefault(rec => obj.Name == rec.Name);
-
-            if (found != null)
-            {
-                return;
-            }
-
-            found = new FinalGradeType();
-            found.Id = obj.Id;
-            found.Name = obj.Name;
-            found.Weight = weight;
-
-            FinalTypes.Add(found);
-        }
-    }
+    public DbSet<UserFile> UserFiles { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

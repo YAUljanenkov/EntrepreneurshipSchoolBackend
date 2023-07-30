@@ -16,7 +16,7 @@ namespace EntrepreneurshipSchoolBackend.Models
         public Group? Group { get; set; }
 
         [Required] public DateTime CompleteDate { get; set; }
-
-        [Required] public string File { get; set; } = string.Empty;
+        public int fileId { get; set; }
+        public UserFile file { get; set; } 
     }
 }

@@ -202,7 +202,6 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             Models.Task newTask = new Models.Task();
 
-            newTask.Id = data.id.Value;
             newTask.Title = data.title;
             newTask.Deadline = data.deadline.Value;
             newTask.IsGroup = data.isTeamWork;

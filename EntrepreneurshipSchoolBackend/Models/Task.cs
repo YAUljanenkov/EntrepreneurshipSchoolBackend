@@ -6,7 +6,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("Tasks")]
     public class Task
     {
-        [Key] public int Id { get; set; }
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
 
         public string? Link { get; set; }
 

@@ -19,6 +19,19 @@
         public DateTime? deadline { get; set; }
     }
 
+    public class TaskSolutionDTO
+    {
+        public int Id { get; set; }
+        public string title { get; set; }
+        public LessonOutputDTO lesson { get; set; }
+        public string? description { get; set; }
+        public string? criteria { get; set; }
+        public bool? isTeamwork { get; set; }
+        public string? link { get; set; }
+        public string taskType { get; set; }
+        public DateTime deadline { get; set; }
+    }
+
     /// <summary>
     /// Класс задания, представляемого в get-методе тасков с перечислением страниц.
     /// </summary>

@@ -6,7 +6,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("Assessments")]
     public class Assessments
     {
-        [Key] public int Id { get; set; }
+        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
         [ForeignKey("Learner")] public int LearnerId { get; set; }
         [ForeignKey("Task")] public int TaskId { get; set; }
 

@@ -89,61 +89,42 @@ public class Startup
 
         var cont = new ApiDbContext(opt);
 
-        AssessmentsType firstA = new AssessmentsType() { Name = "TrackerGrade" };
-        AssessmentsType secondA = new AssessmentsType() { Name = "FinalGrade" };
+        if (cont.TransactionTypes.Count() != 8)
+        {
+            cont.TransactionTypes.RemoveRange(cont.TransactionTypes);
+            cont.TransactionTypes.AddRange(new TransactionType { Name = "Activity" },
+                new TransactionType { Name = "SellLot" }, new TransactionType { Name = "AdminIncome" },
+                new TransactionType { Name = "TransferIncome" }, new TransactionType { Name = "FailedDeadline" },
+                new TransactionType { Name = "BuyLot" }, new TransactionType { Name = "AdminOutcome" },
+                new TransactionType { Name = "TransferOutcome" });
+        }
 
-        cont.CheckAndCreate(firstA, 0);
-        cont.CheckAndCreate(secondA, 0);
+        if(cont.TaskTypes.Count() != 4)
+        {
+            cont.TaskTypes.RemoveRange(cont.TaskTypes);
+            cont.TaskTypes.AddRange(new TaskType { Name = "HW" }, new TaskType { Name = "Test" },
+                new TaskType { Name = "Competition" }, new TaskType { Name = "Exam" });
+        }
 
-        TaskType firstT = new TaskType() { Name = "HW" };
-        TaskType secondT = new TaskType() { Name = "Testing" };
-        TaskType thirdT = new TaskType() { Name = "Competitions" };
-        TaskType fourthT = new TaskType() { Name = "Exams" };
+        if(cont.AssessmentsTypes.Count() != 2)
+        {
+            cont.AssessmentsTypes.RemoveRange(cont.AssessmentsTypes);
+            cont.AssessmentsTypes.AddRange(new AssessmentsType { Name = "TrackerGrade" }, new AssessmentsType { Name = "FinalGrade" });
+        }
 
-        cont.CheckAndCreate(firstT, 0);
-        cont.CheckAndCreate(secondT, 0);
-        cont.CheckAndCreate(thirdT, 0);
-        cont.CheckAndCreate(fourthT, 0);
+        if(cont.ClaimTypes.Count() != 4)
+        {
+            cont.ClaimTypes.RemoveRange(cont.ClaimTypes);
+            cont.ClaimTypes.AddRange(new ClaimType { Name = "BuyingLot" }, new ClaimType { Name = "FailedDeadline" },
+                new ClaimType { Name = "PlacingLot" }, new ClaimType { Name = "Transfer" });
+        }
 
-        TransactionType firstTr = new TransactionType() { Name = "Activity" };
-        TransactionType secondTr = new TransactionType() { Name = "SellLot" };
-        TransactionType thirdTr = new TransactionType() { Name = "AdminIncome" };
-        TransactionType fourTr = new TransactionType() { Name = "TranserIncome" };
-        TransactionType fiveTr = new TransactionType() { Name = "FailedDeadline" };
-        TransactionType sixTr = new TransactionType() { Name = "BuyLot" };
-        TransactionType sevenTr = new TransactionType() { Name = "AdminOutcome" };
-        TransactionType eightTr = new TransactionType() { Name = "TransferOutcome" };
-
-        cont.CheckAndCreate(firstTr, 0);
-        cont.CheckAndCreate(secondTr, 0);
-        cont.CheckAndCreate(thirdTr, 0);
-        cont.CheckAndCreate(fourTr, 0);
-        cont.CheckAndCreate(fiveTr, 0);
-        cont.CheckAndCreate(sixTr, 0);
-        cont.CheckAndCreate(sevenTr, 0);
-        cont.CheckAndCreate(eightTr, 0);
-
-        ClaimType firstC = new ClaimType() { Name = "BuyingLot" };
-        ClaimType secondC = new ClaimType() { Name = "FailedDeadline" };
-        ClaimType thirdC = new ClaimType() { Name = "PlacingLot" };
-        ClaimType fourC = new ClaimType() { Name = "Transfer" };
-
-        cont.CheckAndCreate(firstC, 0);
-        cont.CheckAndCreate(secondC, 0);
-        cont.CheckAndCreate(thirdC, 0);
-        cont.CheckAndCreate(fourC, 0);
-
-        FinalGradeType firstFg = new FinalGradeType() { Name = "HW" };
-        FinalGradeType secondFg = new FinalGradeType() { Name = "Testing" };
-        FinalGradeType thirdFg = new FinalGradeType() { Name = "Competitions" };
-        FinalGradeType fourFg = new FinalGradeType() { Name = "Exams" };
-        FinalGradeType fiveFg = new FinalGradeType() { Name = "Attendance" };
-
-        cont.CheckAndCreate(firstFg, 0.4);
-        cont.CheckAndCreate(secondFg, 0.2);
-        cont.CheckAndCreate(thirdFg, 0.1);
-        cont.CheckAndCreate(fourFg, 0.2);
-        cont.CheckAndCreate(fiveFg, 0.1);
+        if(cont.ClaimStatuses.Count() != 3)
+        {
+            cont.ClaimStatuses.RemoveRange(cont.ClaimStatuses);
+            cont.ClaimStatuses.AddRange(new ClaimStatus { Name = "Waiting" }, new ClaimStatus { Name = "Approved" },
+                new ClaimStatus { Name = "Declined" });
+        }
 
         cont.SaveChanges();
     }

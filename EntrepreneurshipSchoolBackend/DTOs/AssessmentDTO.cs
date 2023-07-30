@@ -58,4 +58,12 @@ namespace EntrepreneurshipSchoolBackend.DTOs
         public int assessment { get; set; }
     }
 
+    public class AssessmentTrackerDTO
+    {
+        public int id { get; set; }
+        public string trackerName { get; set; }
+        public int assessment { get; set; }
+        public string comment { get; set; }
+    }
+
 }

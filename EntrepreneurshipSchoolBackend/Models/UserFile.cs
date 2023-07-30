@@ -6,7 +6,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("UserFiles")]
     public class UserFile
     {
-        [Key, StringLength(128)] public String Name { get; set; }
-        [Required, StringLength(128)] public String FileType { get; set; }
+        [Key] public int Id { get; set; }
+        [Required, StringLength(256)] public string Path { get; set; }
     }
 }
