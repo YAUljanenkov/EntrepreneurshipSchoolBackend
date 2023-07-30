@@ -1,14 +1,17 @@
 ﻿using System;
 using System.IO;
-
 using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Data;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EntrepreneurshipSchoolBackend.DTOs;
+using LinqKit;
 using System.Threading.Tasks;
 using System.Security.Claims;
+using System.Linq.Expressions;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using System.Xml.Linq;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -22,30 +25,40 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/accounts")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetAccounts([FromBody] AccountsComplexRequest request)
         {
-            var relevant_data = from m in _context.Learner
+            var relevant_data = from m in _context.Learners
                                 select m;
             if (request.name != null)
             {
                 string surname = request.name.Split()[0];
                 string name = request.name.Split()[1];
-                relevant_data = relevant_data.Where(x =>  x.Name.Equals(name) && x.Surname.Equals(surname));
+                relevant_data = from m in relevant_data
+                                where m.Name.Equals(name) && m.Surname.Equals(surname)
+                                select m;
             }
             if (request.email != null)
             {
-                relevant_data = relevant_data.Where(x => x.EmailLogin.Equals(request.email));
+                relevant_data = from m in relevant_data
+                                where m.EmailLogin.Equals(request.email)
+                                select m;
             }
             if (request.role != null)
             {
+
                 char role = request.role == "Learner" ? '0' : '1';
-                relevant_data = relevant_data.Where(x => x.IsTracker == role);
+                relevant_data = from m in relevant_data
+                                where m.IsTracker == role
+                                select m;
+            
             }
             if (request.team != null)
             {
-                relevant_data = relevant_data.Where(x => x.Relate != null
-                                                        && x.Relate.Any(x=> x.Group != null && x.Group.Number == request.team));
+                relevant_data = from m in relevant_data
+                                where m.Relate != null && m.Relate.Any(x => x.Group != null && x.Group.Number == request.team)
+                                select m;
+
             }
             if (request.sortProperty != null)
             {
@@ -54,29 +67,22 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "name":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Name descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Name);
                             break;
                         case "email":
-                            relevant_data = from m in relevant_data
-                                            orderby m.EmailLogin descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.EmailLogin);
                             break;
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id descending
-                                            select m;
+
+                            relevant_data.OrderByDescending(x => x.Id);
                             break;
                         case "role":
-                            relevant_data = from m in relevant_data
-                                            orderby m.IsTracker descending
-                                            select m;
+
+                            relevant_data.OrderByDescending(x => x.IsTracker);
                             break;
                         case "balance":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Balance descending
-                                            select m;
+
+                            relevant_data.OrderByDescending(x => x.Balance);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -87,29 +93,24 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "name":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Name
-                                            select m;
+
+                            relevant_data.OrderBy(x => x.Name);
                             break;
                         case "email":
-                            relevant_data = from m in relevant_data
-                                            orderby m.EmailLogin 
-                                            select m;
+
+                            relevant_data.OrderBy(x => x.EmailLogin);
                             break;
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id 
-                                            select m;
+
+                            relevant_data.OrderBy(x => x.Id);
                             break;
                         case "role":
-                            relevant_data = from m in relevant_data
-                                            orderby m.IsTracker 
-                                            select m;
+
+                            relevant_data.OrderBy(x => x.IsTracker);
                             break;
                         case "balance":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Balance
-                                            select m;
+
+                            relevant_data.OrderBy(x => x.Balance);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -149,16 +150,25 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpPost("/admin/accounts")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> CreateAccount([FromBody] UserRequest user)
         {
             List<string> same_properties = new List<string>();
-            var intersect = _context.Learner.FirstOrDefault(ob => ob.EmailLogin == user.email);
+            if (user.id == null)
+            {
+                return BadRequest("Id must be specified");
+            }
+            var intersect = _context.Learners.FirstOrDefault(ob => ob.Id == user.id);
+            if (intersect != null)
+            {
+                same_properties.Add("id");
+            }
+            intersect = _context.Learners.FirstOrDefault(ob => ob.EmailLogin == user.email);
             if (intersect != null)
             {
                 same_properties.Add("email");
             }
-            intersect = _context.Learner.FirstOrDefault(ob => ob.Phone == user.phone);
+            intersect = _context.Learners.FirstOrDefault(ob => ob.Phone == user.phone);
             if (intersect != null)
             {
                 same_properties.Add("phone");
@@ -173,6 +183,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             Learner newLearner = new Learner();
+            newLearner.Id = user.id.Value;
             newLearner.Name = user.name;
             newLearner.Surname = user.surname;
             newLearner.Lastname = user.middleName;
@@ -189,21 +200,21 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.ResultGrade = 0;
             newLearner.GradeBonus = 0;
 
-            _context.Learner.Add(newLearner);
+            _context.Learners.Add(newLearner);
             _context.SaveChanges();
 
             return Ok();
         }
 
         [HttpPut("/admin/accounts")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> UpdateAccount([FromBody] UserRequest user)
         {
             if (user.id == null)
             {
                 return BadRequest("Id is not specified");
             }
-            Models.Learner? acc = _context.Learner.Find(user.id);
+            Models.Learner? acc = _context.Learners.Find(user.id);
             if (acc == null)
             {
                 return NotFound();
@@ -234,7 +245,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [HttpGet("/accounts/{id}")]
         public async Task<ActionResult> GetAccountPublicData(int id)
         {
-            Models.Learner? acc = await _context.Learner.FindAsync(id);
+            Models.Learner? acc = await _context.Learners.FindAsync(id);
             if (acc == null) { return NotFound();}
             ExtendedAccountInfo info = new ExtendedAccountInfo();
             info.email = acc.EmailLogin;
@@ -266,7 +277,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 return BadRequest();
             }
             int user_id = int.Parse(string_id);
-            Models.Learner? acc = await _context.Learner.FindAsync(user_id);
+            Models.Learner? acc = await _context.Learners.FindAsync(user_id);
             if (acc == null) { return NotFound(); }
             BalanceNameResponse response = new BalanceNameResponse();
             response.name = acc.Surname + " " + acc.Name;
@@ -275,16 +286,16 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpDelete("/admin/accounts/{id}")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> DeleteAccount(int id)
         {
-            Models.Learner? acc = await _context.Learner.FindAsync(id);
+            Models.Learner? acc = await _context.Learners.FindAsync(id);
             if (acc == null)
             {
                 return NotFound();
             }
 
-            _context.Learner.Remove(acc);
+            _context.Learners.Remove(acc);
 
             await _context.SaveChangesAsync();
 
@@ -292,7 +303,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/accounts/select")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetAccListByRole([FromBody] string? role)
         {
             if (role == null)
@@ -303,7 +314,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             
             char role_c = role == "Learner" ? '0' : '1';
-            var relevant_data = from m in _context.Learner
+            var relevant_data = from m in _context.Learners
                                 where m.IsTracker == role_c
                                 select m;
             

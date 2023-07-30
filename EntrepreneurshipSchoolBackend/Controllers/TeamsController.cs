@@ -23,14 +23,16 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/teams")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeams([FromBody] TeamsComplexRequest request)
         {
             var relevant_data = from m in _context.Groups
                                 select m;
             if (request.teamNumber != null)
             {
-                relevant_data = relevant_data.Where(x => x.Number == request.teamNumber);
+                relevant_data = from m in relevant_data
+                                where m.Number == request.teamNumber
+                                select m;
             }
 
             if (request.sortProperty != null)
@@ -40,14 +42,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "teamNumber":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Number descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Number);
                             break;
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Id);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -59,15 +57,11 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "teamNumber":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Number
-                                            select m;
+                            relevant_data.OrderBy(x => x.Number);
                             break;
                         
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id
-                                            select m;
+                            relevant_data.OrderBy(x => x.Id);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -101,14 +95,23 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpPost("/admin/teams")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> CreateTeam([FromBody] TeamRequest team)
         {
+            if (team.id == null)
+            {
+                return BadRequest("Id must be specified");
+            }
             List<string> same_properties = new List<string>();
             var intersect = _context.Groups.FirstOrDefault(ob => ob.Theme == team.projectTheme);
             if (intersect != null)
             {
                 same_properties.Add("projectTheme");
+            }
+            intersect = _context.Groups.FirstOrDefault(ob => ob.Id == team.id);
+            if (intersect != null)
+            {
+                same_properties.Add("id");
             }
 
             if (same_properties.Count > 0)
@@ -117,13 +120,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
             foreach (int id in team.members)
             {
-                var user = _context.Learner.FirstOrDefault(ob => ob.Id == id);
+                var user = _context.Learners.FirstOrDefault(ob => ob.Id == id);
                 if (user == null)
                 {
                     return NotFound("user does not exists");
                 }
             }
             Group new_group = new Group();
+            new_group.Id = team.id.Value;
             new_group.Number = _context.Groups.Count() + 1;
             new_group.Theme = team.projectTheme;
             new_group.Name = "";
@@ -132,7 +136,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             foreach (int id in team.members)
             {
-                var user = _context.Learner.FirstOrDefault(ob => ob.Id == id);
+                var user = _context.Learners.FirstOrDefault(ob => ob.Id == id);
                 Relate relate = new Relate();
                 relate.Learner = user;
                 relate.Group = new_group;
@@ -144,7 +148,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
         
         [HttpPut("/admin/teams")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> UpdateTeam([FromBody] TeamRequest team)
         {
             if (team.id == null)
@@ -158,7 +162,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
             foreach (int id in team.members)
             {
-                var user = _context.Learner.FirstOrDefault(ob => ob.Id == id);
+                var user = _context.Learners.FirstOrDefault(ob => ob.Id == id);
                 if (user == null)
                 {
                     return NotFound("user does not exists");
@@ -188,7 +192,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             foreach (int id in new_users)
             {
                 Relate new_relate = new Relate();
-                new_relate.Learner = await _context.Learner.FindAsync(id);
+                new_relate.Learner = await _context.Learners.FindAsync(id);
                 new_relate.Group = team_new;
                 _context.Relates.Add(new_relate);
             }
@@ -199,7 +203,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/teams/{id}")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeamData(int id)
         {
             Models.Group? team = await _context.Groups.FindAsync(id);
@@ -215,7 +219,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             List<int> users_id = old_users.ToList();
             foreach (int user_id in users_id)
             {
-                Models.Learner? acc = await _context.Learner.FindAsync(user_id);
+                Models.Learner? acc = await _context.Learners.FindAsync(user_id);
                 if (acc == null) { return NotFound(); }
                 AccountInfo info = new AccountInfo();
                 info.email = acc.EmailLogin;
@@ -249,7 +253,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             List<int> users_id = old_users.ToList();
             foreach (int user_id in users_id)
             {
-                Models.Learner? acc = await _context.Learner.FindAsync(user_id);
+                Models.Learner? acc = await _context.Learners.FindAsync(user_id);
                 if (acc == null) { return NotFound(); }
                 PublicTeammateInfo info = new PublicTeammateInfo();
                 info.email = acc.EmailLogin;
@@ -267,7 +271,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpDelete("/admin/teams/{id}")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> DeleteTeam(int id)
         {
             Models.Group? team = await _context.Groups.FindAsync(id);
@@ -284,7 +288,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/admin/teams/select")]
-        [Authorize(Roles = Roles.Admin)]
+        //[Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeamListByRole()
         {
             var relevant_data = from m in _context.Groups

@@ -66,9 +66,9 @@ public class AuthController : ControllerBase
             claims.Add(new Claim(ClaimTypes.Role, Roles.Admin));
             role = Roles.Admin;
         }
-        else if (_context.Learner.Any(x => x.EmailLogin == model.login))
+        else if (_context.Learners.Any(x => x.EmailLogin == model.login))
         {
-            var learner = _context.Learner.First(x => x.EmailLogin == model.login);
+            var learner = _context.Learners.First(x => x.EmailLogin == model.login);
             if (!VerifyHashedPassword(learner.Password, model.password))
             {
                 return NotFound();
