@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace EntrepreneurshipSchoolBackend.Models
 {
-    [Table("Learners")]
+    [Table("Learner")]
     public class Learner
     {
         [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
