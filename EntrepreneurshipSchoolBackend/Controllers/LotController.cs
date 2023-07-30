@@ -76,7 +76,7 @@ public class LotController : ControllerBase
             .Include(x => x.Learner)
             .Where(x => lotNumber == null || x.Number == lotNumber)
             .Where(x => learnerId == null || x.Learner != null && x.Learner.Id == learnerId)
-            .Where(x => lotTitle != null || x.Title.Contains(lotTitle ?? ""));
+            .Where(x => lotTitle == null || x.Title.Contains(lotTitle ?? ""));
 
         query = sortProperty?.ToLower() switch
         {
@@ -123,7 +123,7 @@ public class LotController : ControllerBase
     /// </summary>
     /// <param name="newLot">Lot to create.</param>
     /// <returns>200</returns>
-    [HttpGet("/admin/lots")]
+    [HttpPost("/admin/lots")]
     [Authorize(Roles = Roles.Admin)]
     public IActionResult CreateLot(LotDTO newLot)
     {
@@ -191,15 +191,18 @@ public class LotController : ControllerBase
     /// <returns>200</returns>
     [HttpDelete("/admin/lots/{id:int}")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult DeleteLotById(int id)
+    public async Task<IActionResult> DeleteLotById(int id)
     {
         if (!_context.Lots.Any(x => x.Id == id))
         {
             return new NotFoundResult();
         }
 
-        _context.Lots.Remove(_context.Lots.First(x => x.Id == id));
-        _context.SaveChanges();
+        var lot = _context.Lots.Include(x => x.Learner).First(x => x.Id == id);
+        await _context.Claim.Where(x => x.Lot == lot).ForEachAsync(x => x.Lot = null);
+        lot.Learner = null;
+        _context.Lots.Remove(lot);
+        await _context.SaveChangesAsync();
         return new OkResult();
     }
 
@@ -248,7 +251,7 @@ public class LotController : ControllerBase
             .Include(x => x.Learner)
             .Where(x => lotNumber == null || x.Number == lotNumber)
             .Where(x =>  x.Learner == learner)
-            .Where(x => lotTitle != null || x.Title.Contains(lotTitle ?? ""))
+            .Where(x => lotTitle == null || x.Title.Contains(lotTitle ?? ""))
             .Where(x => priceFrom == null || x.Price >= priceFrom)
             .Where(x => priceTo == null || x.Price <= priceTo);
         
