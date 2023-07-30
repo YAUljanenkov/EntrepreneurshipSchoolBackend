@@ -10,6 +10,7 @@ using EntrepreneurshipSchoolBackend.DTOs;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -26,16 +27,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetLessons([FromBody] LessonComplexRequest request)
         {
-            var relevant_data = from m in _context.Lessons
-                                select m;
-            if (request.lessonNumber != null)
-            {
-                relevant_data = relevant_data.Where(x => x.Number == request.lessonNumber);
-            }
-            if (request.lessonTitle != null)
-            {
-                relevant_data = relevant_data.Where(x => x.Title.Equals(request.lessonTitle));
-            }
+            var relevant_data = _context.Lessons
+            .Include(x => x.Tasks)
+            .Where(x => request.lessonNumber == null || x.Number.Equals(request.lessonNumber))
+            .Where(x => request.lessonTitle == null || x.Title == request.lessonTitle)
+            .ToList();
+            
             if (request.sortProperty != null)
             {
                 if (request.sortOrder == "desc")
@@ -43,19 +40,13 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "lessonNumber":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Number descending
-                                            select m;
+                            relevant_data.OrderByDescending(x=>x.Number);
                             break;
                         case "lessonTitle":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Title descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Title);
                             break;
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Id);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -67,19 +58,13 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "lessonNumber":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Number
-                                            select m;
+                            relevant_data.OrderBy(x => x.Number);
                             break;
                         case "lessonTitle":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Title
-                                            select m;
+                            relevant_data.OrderBy(x => x.Title);
                             break;
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id
-                                            select m;
+                            relevant_data.OrderBy(x => x.Id);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -89,8 +74,13 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
             if (request.pageable)
             {
-                var lessOnThePage = relevant_data.Skip(request.pageSize * (request.page - 1)).Take(request.pageSize);
-                if (lessOnThePage == null)
+                if (request.page == null || request.pageSize == null)
+                {
+                    request.page = 1;
+                    request.pageSize = 10;
+                }
+                var lessOnThePage = relevant_data.Skip(request.pageSize.Value * (request.page.Value - 1)).Take(request.pageSize.Value);
+                if (lessOnThePage.Count() == 0)
                 {
                     return BadRequest("page number is too big");
                 }
@@ -106,9 +96,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
                 Pagination pagination = new Pagination();
                 pagination.total_elements = relevant_data.Count();
-                pagination.total_pages = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
+                pagination.total_pages = (relevant_data.Count() + request.pageSize.Value - 1) / request.pageSize.Value;
                 pagination.pageSize = content.Count;
-                pagination.page_number = request.page;
+                pagination.page_number = request.page.Value;
                 LessonResponse response = new LessonResponse();
                 response.content = content;
                 response.pagination = pagination;
@@ -157,18 +147,27 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             Lesson newLesson = new Lesson();
-            newLesson.Id = lesson.id;
             newLesson.Title = lesson.title;
             newLesson.Number = lesson.number;
             newLesson.Date = date;
             newLesson.Description = lesson.description;
-            newLesson.PresLink = lesson.presLink;
-            newLesson.VideoLink = lesson.videoLink;
+            if (lesson.presLink != null)
+            {
+                newLesson.PresLink = lesson.presLink;
+            }
+            if (lesson.videoLink != null)
+            {
+                newLesson.VideoLink = lesson.videoLink;
+            }
             _context.Lessons.Add(newLesson);
             _context.SaveChanges();
             if (lesson.homeworkId != null)
             {
                 Models.Task? homework = await _context.Tasks.FindAsync(lesson.homeworkId);
+                if (homework != null && homework.Type.Name != "HW")
+                {
+                    return BadRequest("not id of homework");
+                }
                 if (homework != null)
                 {
                     homework.Lesson = newLesson;
@@ -177,6 +176,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             if (lesson.testId != null)
             {
                 Models.Task? test = await _context.Tasks.FindAsync(lesson.testId);
+                if (test != null && test.Type.Name != "Testing")
+                {
+                    return BadRequest("not id of test");
+                }
                 if (test != null)
                 {
                     test.Lesson = newLesson;
@@ -205,19 +208,27 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 return BadRequest("bad date");
             }
-
-            les.Id = lesson.id;
             les.Title = lesson.title;
             les.Number = lesson.number;
             les.Date = date;
             les.Description = lesson.description;
-            les.PresLink = lesson.presLink;
-            les.VideoLink = lesson.videoLink;
+            if (lesson.presLink != null)
+            {
+                les.PresLink = lesson.presLink;
+            }
+            if (lesson.videoLink != null)
+            {
+                les.VideoLink = lesson.videoLink;
+            }
             _context.Lessons.Add(les);
             _context.SaveChanges();
             if (lesson.homeworkId != null)
             {
                 Models.Task? homework = await _context.Tasks.FindAsync(lesson.homeworkId);
+                if (homework != null && homework.Type.Name != "HW")
+                {
+                    return BadRequest("not id of homework");
+                }
                 if (homework != null)
                 {
                     homework.Lesson = les;
@@ -226,6 +237,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             if (lesson.testId != null)
             {
                 Models.Task? test = await _context.Tasks.FindAsync(lesson.testId);
+                if (test != null && test.Type.Name != "Testing")
+                {
+                    return BadRequest("not id of test");
+                }
                 if (test != null)
                 {
                     test.Lesson = les;
@@ -248,11 +263,11 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 TaskInLesson t = new TaskInLesson();
                 t.title = task.Title;
                 t.id    = task.Id;
-                if (task.Type.Name == "homework")
+                if (task.Type.Name == "HW")
                 {
                     info.homework = t;
                 }
-                if (task.Type.Name == "test") {
+                if (task.Type.Name == "Testing") {
                     info.test = t; 
                 }
             }
@@ -267,6 +282,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/lessons")]
+        [Authorize]
         public async Task<ActionResult> GetLessonsPublicList()
         {
             var relevant_data = from m in _context.Lessons
@@ -323,6 +339,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/lessons/{id}")]
+        [Authorize]
         public async Task<ActionResult> GetLessonById(int id)
         {
             Models.Lesson? les = _context.Lessons.Include(x => x.Tasks).FirstOrDefault(x => x.Id == id);
@@ -336,19 +353,28 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 t.lesson = new ShortenLessonInfo();
                 t.lesson.id = id;
                 t.lesson.number = les.Number;
-                t.description = task.Comment;
-                t.criteria = task.Criteria;
-                t.isTeamWork = task.Equals(true);
-                t.link = task.Link;
-                t.deadline = task.Deadline.ToString();
-                if (task.Type.Name == "homework")
+                if (task.Comment != null)
                 {
-                    t.taskType = "homework";
+                    t.description = task.Comment;
+                }
+                if (task.Criteria != null)
+                {
+                    t.criteria = task.Criteria;
+                }
+                t.isTeamWork = task.Equals(true);
+                if (task.Link != null)
+                {
+                    t.link = task.Link;
+                }
+                t.deadline = task.Deadline.ToString();
+                if (task.Type.Name == "HW")
+                {
+                    t.taskType = "HW";
                     info.homework = t;
                 }
-                if (task.Type.Name == "test")
+                if (task.Type.Name == "Testing")
                 {
-                    t.taskType = "test";
+                    t.taskType = "Testing";
                     info.test = t;
                 }
             }

@@ -26,12 +26,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTeams([FromBody] TeamsComplexRequest request)
         {
-            var relevant_data = from m in _context.Groups
-                                select m;
-            if (request.teamNumber != null)
-            {
-                relevant_data = relevant_data.Where(x => x.Number == request.teamNumber);
-            }
+            var relevant_data = _context.Groups
+            .Where(x => request.teamNumber == null || x.Number == request.teamNumber)
+            .ToList();
 
             if (request.sortProperty != null)
             {
@@ -40,14 +37,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "teamNumber":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Number descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Number);
                             break;
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id descending
-                                            select m;
+                            relevant_data.OrderByDescending(x => x.Id);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -59,15 +52,11 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     switch (request.sortProperty)
                     {
                         case "teamNumber":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Number
-                                            select m;
+                            relevant_data.OrderBy(x => x.Number);
                             break;
                         
                         case "id":
-                            relevant_data = from m in relevant_data
-                                            orderby m.Id
-                                            select m;
+                            relevant_data.OrderBy(x => x.Id);
                             break;
                         default:
                             return BadRequest("Invalid sortby parametr");
@@ -234,6 +223,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         }
 
         [HttpGet("/learner/teams/{id}")]
+        [Authorize]
         public async Task<ActionResult> GetPublicTeamInfo(int id)
         {
             Models.Group? team = await _context.Groups.FindAsync(id);
