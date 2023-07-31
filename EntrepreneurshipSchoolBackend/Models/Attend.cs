@@ -16,6 +16,5 @@ namespace EntrepreneurshipSchoolBackend.Models
         public Transaction? Transaction { get; set; }
 
         [Required] public char DidCome { get; set; }
-
     }
 }

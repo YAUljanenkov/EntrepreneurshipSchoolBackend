@@ -15,7 +15,7 @@ namespace EntrepreneurshipSchoolBackend.Models
 
         [StringLength(64)] public string? Lastname { get; set; }
 
-        [StringLength(64)] public string? Messenger { get; set; }
+        [StringLength(64), Required] public string? Messenger { get; set; }
 
         public char? Gender { get; set; }
 

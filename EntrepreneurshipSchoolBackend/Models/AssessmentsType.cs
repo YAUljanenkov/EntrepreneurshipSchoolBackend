@@ -7,7 +7,7 @@ namespace EntrepreneurshipSchoolBackend.Models
     [Table("AssessmentsTypes")]
     public class AssessmentsType : IType
     {
-        [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
+        [Key] public int Id { get; set; }
         [Required] public string Name { get; set; } = string.Empty;
     }
 }
