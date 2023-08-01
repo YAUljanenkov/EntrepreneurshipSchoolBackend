@@ -5,20 +5,20 @@ networks:
     driver: bridge
 
 services:
-#  backend:
-#    image: entrepreneurshipschool:latest
-#    depends_on: 
-#      - "database"
-#    build:
-#      context: .
-#      dockerfile: Dockerfile
-#    ports:
-#      - "8000:80"
-#    environment:
-#      DB_CONNECTION_STRING: "host=localhost;port=5432;database=database;username=admin;password=password"
-#      ASPNETCORE_ENVIRONMENT: "Development"
-#    networks:
-#      - backend-dev
+  backend:
+    image: entrepreneurshipschool:latest
+    depends_on: 
+      - database
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:80"
+    environment:
+      DB_CONNECTION_STRING: "host=database;port=5432;database=database;username=admin;password=password"
+      ASPNETCORE_ENVIRONMENT: "Development"
+    networks:
+      - backend-dev
   
   
   database:
