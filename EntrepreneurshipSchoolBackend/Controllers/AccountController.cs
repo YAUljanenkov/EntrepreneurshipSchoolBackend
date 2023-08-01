@@ -160,7 +160,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.Messenger = user.messenger;
             newLearner.EmailLogin = user.email;
             newLearner.Phone = user.phone;
-            newLearner.Password = user.password;
+            newLearner.Password = AuthController.HashPassword(user.password);
             newLearner.IsTracker = user.role == Roles.Learner ? '0' : '1';
             if (user.gender != null)
             {
