@@ -118,10 +118,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 content.Add(info);
             }
             Pagination pagination = new Pagination();
-            pagination.total_elements = relevant_data.Count();
-            pagination.total_pages = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
-            pagination.pageSize = content.Count;
-            pagination.page_number = request.page;
+            pagination.TotalElements = relevant_data.Count();
+            pagination.TotalElements = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
+            pagination.PageSize = content.Count;
+            pagination.Page = request.page;
             AccountComplexResponse response = new AccountComplexResponse();
             response.content = content;
             response.pagination = pagination;
