@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace EntrepreneurshipSchoolBackend.Models
 {
-    [Table("Learners")]
+    [Table("Learner")]
     public class Learner
     {
         [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)] public int Id { get; set; }
@@ -15,7 +15,7 @@ namespace EntrepreneurshipSchoolBackend.Models
 
         [StringLength(64)] public string? Lastname { get; set; }
 
-        [StringLength(64)] public string? Messenger { get; set; }
+        [StringLength(64), Required] public string? Messenger { get; set; }
 
         public char? Gender { get; set; }
 
@@ -32,5 +32,7 @@ namespace EntrepreneurshipSchoolBackend.Models
         [Required] public double ResultGrade { get; set; }
 
         public double? GradeBonus { get; set; }
+
+        public virtual ICollection<Relate> Relate { get; set; }
     }
 }

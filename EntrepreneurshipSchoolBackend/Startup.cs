@@ -52,6 +52,8 @@ public class Startup
             var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
             c.IncludeXmlComments(xmlPath);
         });
+
+        StartupRecords();
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -73,5 +75,57 @@ public class Startup
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
+    }
+
+    /// <summary>
+    /// This method is used ON STARTUP to check if the DB has types (TransactionTypes, FinalGradeTypes and so on).
+    /// You can also use the text of this method as a reference point for types inside the DB.
+    /// </summary>
+    public void StartupRecords()
+    {
+        var opt = new DbContextOptionsBuilder<ApiDbContext>()
+            .UseNpgsql(connectionString)
+            .Options;
+
+        var cont = new ApiDbContext(opt);
+
+        if (cont.TransactionTypes.Count() != 8)
+        {
+            cont.TransactionTypes.RemoveRange(cont.TransactionTypes);
+            cont.TransactionTypes.AddRange(new TransactionType { Name = "Activity" },
+                new TransactionType { Name = "SellLot" }, new TransactionType { Name = "AdminIncome" },
+                new TransactionType { Name = "TransferIncome" }, new TransactionType { Name = "FailedDeadline" },
+                new TransactionType { Name = "BuyLot" }, new TransactionType { Name = "AdminOutcome" },
+                new TransactionType { Name = "TransferOutcome" });
+        }
+
+        if(cont.TaskTypes.Count() != 4)
+        {
+            cont.TaskTypes.RemoveRange(cont.TaskTypes);
+            cont.TaskTypes.AddRange(new TaskType { Name = "HW" }, new TaskType { Name = "Test" },
+                new TaskType { Name = "Competition" }, new TaskType { Name = "Exam" });
+        }
+
+        if(cont.AssessmentsTypes.Count() != 2)
+        {
+            cont.AssessmentsTypes.RemoveRange(cont.AssessmentsTypes);
+            cont.AssessmentsTypes.AddRange(new AssessmentsType { Name = "TrackerGrade" }, new AssessmentsType { Name = "FinalGrade" });
+        }
+
+        if(cont.ClaimTypes.Count() != 4)
+        {
+            cont.ClaimTypes.RemoveRange(cont.ClaimTypes);
+            cont.ClaimTypes.AddRange(new ClaimType { Name = "BuyingLot" }, new ClaimType { Name = "FailedDeadline" },
+                new ClaimType { Name = "PlacingLot" }, new ClaimType { Name = "Transfer" });
+        }
+
+        if(cont.ClaimStatuses.Count() != 3)
+        {
+            cont.ClaimStatuses.RemoveRange(cont.ClaimStatuses);
+            cont.ClaimStatuses.AddRange(new ClaimStatus { Name = "Waiting" }, new ClaimStatus { Name = "Approved" },
+                new ClaimStatus { Name = "Declined" });
+        }
+
+        cont.SaveChanges();
     }
 }

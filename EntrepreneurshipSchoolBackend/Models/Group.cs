@@ -14,5 +14,7 @@ namespace EntrepreneurshipSchoolBackend.Models
 
         [Required] public string Theme { get; set; } = string.Empty;
 
+        public virtual ICollection<Relate> Relate { get; set; }
+
     }
 }

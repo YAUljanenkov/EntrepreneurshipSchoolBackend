@@ -1,7 +1,9 @@
 ﻿using System;
 using System.IO;
+using System.Security.Claims;
 
 using EntrepreneurshipSchoolBackend.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
@@ -15,57 +17,106 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             _context = context;
         }
 
-        [HttpGet("GetAllFiles")]
-        public async Task<ActionResult> GetFiles()
+        /// <summary>
+        /// Файла загрузки файла с сервера.
+        /// </summary>
+        /// <param name="fileId"></param>
+        /// <returns></returns>
+        [HttpGet("/files/{fileId}")]
+        public async Task<ActionResult> DownloadFile(int fileId)
         {
-            return Ok(_context.UserFiles.ToList());
-        }
+            UserFile thisFile = _context.UserFiles.Find(fileId);
 
-        [HttpGet("DownloadFileByName")]
-        public async Task<ActionResult> DownloadFile(string fileName)
-        {
-            var correctName = _context.UserFiles.FirstOrDefault(ob => ob.Name == fileName);
-
-            if (correctName == null)
+            if (thisFile == null)
             {
-                return BadRequest("No files by that name!");
+                return NotFound("No solutions found with that id");
             }
 
-            var fileBytes = System.IO.File.ReadAllBytes("../files/" + fileName);
+            var fileBytes = System.IO.File.ReadAllBytes(thisFile.Path);
 
-
-
-            return Ok(File(fileBytes, correctName.FileType));
+            return Ok(File(fileBytes, "application/zip"));
         }
 
-        [HttpPost("UploadFile")]
-        public async Task<ActionResult> UploadFile(IFormFile file)
+        /// <summary>
+        /// Метод загрузки файла с решением на сервер.
+        /// Требуется айди задания, решение которого записано в файле.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <param name="taskId"></param>
+        /// <returns></returns>
+        [HttpPost("/learner/files")]
+        [Authorize(Roles = Roles.Learner)]
+        public async Task<ActionResult> UploadFile(IFormFile file, int taskId)
         {
-            if(file == null || file.Length <= 0)
+            // Проверяем, есть ли такое задание в БД.
+            Models.Task thisTask = _context.Tasks.Find(taskId);
+
+            if (thisTask == null)
             {
-                return BadRequest("No file uploaded");
+                return NotFound("No task found by that id");
             }
 
-            var possibleNamesakes = from copy in _context.UserFiles
-                                    where copy.Name == file.FileName
+            int learnerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
+            Learner thisLearner = _context.Learner.Find(learnerId);
+
+            // Создаём новый объект solution.
+            // При загрузке файла на сервер автоматически будет создаваться solution на задание с идентификатором taskId.
+            Solution newSolution = new Solution();
+
+            // Заполняем очевидные поля решения.
+            newSolution.TaskId = taskId;
+            newSolution.Task = _context.Tasks.Find(taskId);
+            newSolution.CompleteDate = DateTime.Now;
+
+            // В зависимости от командности задания, заполняем либо learner, либо group решения.
+            if (thisTask.IsGroup == true)
+            {
+                Group thisGroup = _context.Relates.FirstOrDefault(relate => relate.LearnerId == learnerId).Group;
+                newSolution.Group = thisGroup;
+                newSolution.GroupId = thisGroup.Id;
+            }
+            else
+            {
+                newSolution.Learner = thisLearner;
+                newSolution.LearnerId = thisLearner.Id;
+            }
+
+            // Указываем дату выполнения (сейчас) и путь к файлу задания.
+            newSolution.CompleteDate = DateTime.Now;
+
+            UserFile newFile = new UserFile();
+            newFile.Path = "../files/" + file.FileName;
+
+            // Избегаем копий в хранилище файлов.
+            var possibleNamesakes = from copy in _context.Solutions
+                                    where copy.file.Path == newFile.Path
                                     select copy;
 
-            // ПОКА ЧТО ТАК.
-            if(possibleNamesakes.Any())
+            if (possibleNamesakes.Any())
             {
                 return BadRequest("Such file already exists");
             }
 
+            // Сохраняем файл.
             using (var stream = new FileStream("../files/" + file.FileName, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            UserFile newFile = new UserFile();
-            newFile.Name = file.FileName;
-            newFile.FileType = file.ContentType;
-
             _context.UserFiles.Add(newFile);
+            _context.SaveChanges();
+
+            newSolution.file = newFile;
+            newSolution.fileId = newFile.Id;
+
+            // Загружаем файл (зип архив) решения задания.
+            if (file == null || file.Length <= 0 || file.ContentType != "application/zip")
+            {
+                return BadRequest("The uploaded files was not .zip");
+            }
+
+            // Вносим изменения в БД.
+            _context.Solutions.Add(newSolution);
             _context.SaveChanges();
 
             return Ok();
