@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -119,7 +119,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
             Pagination pagination = new Pagination();
             pagination.TotalElements = relevant_data.Count();
-            pagination.TotalElements = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
+            pagination.TotalPages = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
             pagination.PageSize = content.Count;
             pagination.Page = request.page;
             AccountComplexResponse response = new AccountComplexResponse();
@@ -212,8 +212,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             return Ok();
         }
 
-        [HttpGet("/accounts/{id}")]
-        [Authorize]
+        [HttpGet("/admin/accounts/{id:int}")]
+        [Authorize(Roles =Roles.Admin)]
         public async Task<ActionResult> GetAccountPublicData(int id)
         {
             Models.Learner? acc = await _context.Learner.FindAsync(id);
@@ -239,8 +239,42 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             return Ok(info);
         }
 
+        [HttpGet("/learner/accounts/profile")]
+        [Authorize]
+        public async Task<ActionResult> GetUserProfile()
+        {
+            string? string_id = HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value;
+            if (string_id == null)
+            {
+                return BadRequest();
+            }
+            int user_id = int.Parse(string_id);
+            Models.Learner? acc = await _context.Learner.FindAsync(user_id);
+            if (acc == null) { return NotFound(); }
+            ExtendedAccountInfo info = new ExtendedAccountInfo();
+            info.email = acc.EmailLogin;
+            info.role = acc.IsTracker == '0' ? "Learner" : "Tracker";
+            info.balance = acc.Balance;
+            info.id = acc.Id;
+            info.fullName = acc.Surname + " " + acc.Name;
+            var TeamNumbers = from r in _context.Relates
+                              where r.LearnerId == acc.Id
+                              select r.Group.Number;
+            info.teamNumber = TeamNumbers.ToList();
+            info.phone = acc.Phone;
+            if (acc.Messenger != null)
+            {
+                info.messenger = acc.Messenger;
+            }
+            if (acc.Gender != null)
+            {
+                info.gender = acc.Gender == '1';
+            }
+            return Ok(info);
+        }
+
         [HttpGet("/learner/accounts/balance-name")]
-        [Authorize(Roles = Roles.Learner)]
+        [Authorize]
         public async Task<ActionResult> GetAccountBalance()
         {
             string? string_id = HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value;

@@ -96,7 +96,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
                 Pagination pagination = new Pagination();
                 pagination.TotalElements = relevant_data.Count();
-                pagination.TotalElements = (relevant_data.Count() + request.pageSize.Value - 1) / request.pageSize.Value;
+                pagination.TotalPages = (relevant_data.Count() + request.pageSize.Value - 1) / request.pageSize.Value;
                 pagination.PageSize = content.Count;
                 pagination.Page = request.page.Value;
                 LessonResponse response = new LessonResponse();

@@ -1,6 +1,5 @@
 ﻿namespace EntrepreneurshipSchoolBackend.DTOs
-{
-
+{ 
     public class BalanceNameResponse
     {
         public int balance { get; set; }
