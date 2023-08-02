@@ -2,7 +2,7 @@ using System.Security.Claims;
 using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using EntrepreneurshipSchoolBackend.DTOs;
+using EntrepreneurshipSchoolBackend.DTOs.Lots;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntrepreneurshipSchoolBackend.Controllers;
@@ -113,6 +113,8 @@ public class LotController : ControllerBase
             content = query
                 .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
                 .Take(pageSize ?? 10)
+                .AsEnumerable()
+                .Select(x => new LotShortInfoDTO(x))
         };
 
         return new OkObjectResult(result);
@@ -121,20 +123,20 @@ public class LotController : ControllerBase
     /// <summary>
     /// Create lot.
     /// </summary>
-    /// <param name="newLot">Lot to create.</param>
+    /// <param name="newCreateLot">Lot to create.</param>
     /// <returns>200</returns>
     [HttpPost("/admin/lots")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult CreateLot(LotDTO newLot)
+    public IActionResult CreateLot(CreateLotDTO newCreateLot)
     {
         var number = _context.Lots.OrderByDescending(x => x.Number).FirstOrDefault()?.Number + 1 ?? 1;
         var lot = new Lot
         {
-            Title = newLot.title,
-            Description = newLot.description,
-            Terms = newLot.terms,
-            Performer = newLot.performer,
-            Price = newLot.price,
+            Title = newCreateLot.title,
+            Description = newCreateLot.description,
+            Terms = newCreateLot.terms,
+            Performer = newCreateLot.performer,
+            Price = newCreateLot.price,
             Number = number
         };
 
@@ -181,7 +183,7 @@ public class LotController : ControllerBase
             return new NotFoundResult();
         }
 
-        return new OkObjectResult(_context.Lots.First(x => x.Id == id));
+        return new OkObjectResult(new LotInfoDTO(_context.Lots.Include(x => x.Learner).First(x => x.Id == id)));
     }
     
     /// <summary>
@@ -269,6 +271,8 @@ public class LotController : ControllerBase
             content = query
                 .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
                 .Take(pageSize ?? 10)
+                .AsEnumerable()
+                .Select(x => new LotInfoDTO(x))
         };
 
         return new OkObjectResult(result);
