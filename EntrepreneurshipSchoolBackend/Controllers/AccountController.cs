@@ -160,7 +160,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.Messenger = user.messenger;
             newLearner.EmailLogin = user.email;
             newLearner.Phone = user.phone;
-            newLearner.Password = user.password;
+            newLearner.Password = AuthController.HashPassword(user.password);
             newLearner.IsTracker = user.role == Roles.Learner ? '0' : '1';
             if (user.gender != null)
             {
@@ -212,7 +212,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             return Ok();
         }
 
-        [HttpGet("/admin/accounts/{id}")]
+        [HttpGet("/admin/accounts/{id:int}")]
         [Authorize(Roles =Roles.Admin)]
         public async Task<ActionResult> GetAccountPublicData(int id)
         {

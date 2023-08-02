@@ -11,7 +11,7 @@ namespace EntrepreneurshipSchoolBackend;
 
 public class Startup
 {
-    private String connectionString = "host=localhost;port=5432;database=database;username=admin;password=password";
+    // private String connectionString = "host=localhost;port=5432;database=database;username=admin;password=password";
 
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
@@ -38,8 +38,8 @@ public class Startup
             };                
         });
         services.AddAuthorization();
-        // var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
-        services.AddDbContext<ApiDbContext>(options => { options.UseNpgsql(connectionString); });
+        var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+        services.AddDbContext<ApiDbContext>(options => options.UseNpgsql(connectionString) );
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new OpenApiInfo
@@ -83,11 +83,19 @@ public class Startup
     /// </summary>
     public void StartupRecords()
     {
+        var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
         var opt = new DbContextOptionsBuilder<ApiDbContext>()
             .UseNpgsql(connectionString)
             .Options;
 
         var cont = new ApiDbContext(opt);
+        
+        if (!cont.Admins.Any(x => x.EmailLogin == "admin"))
+        {
+            // Не забыть поменять перед релизом))
+            cont.Admins.Add(new Admin
+                { EmailLogin = "admin", Password = Controllers.AuthController.HashPassword("password") });
+        }
 
         if (cont.TransactionTypes.Count() != 8)
         {

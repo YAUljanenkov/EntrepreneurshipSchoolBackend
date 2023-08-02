@@ -111,7 +111,7 @@ public class TransactionController : ControllerBase
             "comment" or "description" => sortOrder == "desc"
                 ? query.OrderByDescending(x => x.Comment)
                 : query.OrderBy(x => x.Comment),
-            "date" or "dateTime" => sortOrder == "desc"
+            "date" or "datetime" => sortOrder == "desc"
                 ? query.OrderByDescending(x => x.Date)
                 : query.OrderBy(x => x.Date),
             "sum" => sortOrder == "desc" ? query.OrderByDescending(x => x.Sum) : query.OrderBy(x => x.Sum),
@@ -119,8 +119,9 @@ public class TransactionController : ControllerBase
                 ? query.OrderByDescending(x => x.Type.Name)
                 : query.OrderBy(x => x.Type.Name),
             "learner" => sortOrder == "desc"
-                ? query.OrderByDescending(x => x.Learner.Surname)
-                : query.OrderBy(x => x.Learner.Surname),
+                ? query.OrderByDescending(x => x.Learner.Surname).ThenByDescending(x => x.Learner.Name)
+                    .ThenByDescending(x => x.Learner.Lastname)
+                : query.OrderBy(x => x.Learner.Surname).ThenBy(x => x.Learner.Name).ThenBy(x => x.Learner.Lastname),
             _ => query
         };
 
@@ -172,6 +173,7 @@ public class TransactionController : ControllerBase
         };
 
         _context.Transactions.Add(newTransaction);
+        learner.Balance += transaction.sum;
         _context.SaveChanges();
         return new OkResult();
     }
