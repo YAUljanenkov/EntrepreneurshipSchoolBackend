@@ -5,9 +5,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace EntrepreneurshipSchoolBackend.Models
 {
     [Table("Solutions")]
-    [PrimaryKey(nameof(TaskId), nameof(LearnerId), nameof(GroupId))]
     public class Solution
     {
+        [Key] public int SolutionId { get; set; }
         public int TaskId { get; set; }
         [Required] public Task? Task { get; set; }
         public int LearnerId { get; set; }

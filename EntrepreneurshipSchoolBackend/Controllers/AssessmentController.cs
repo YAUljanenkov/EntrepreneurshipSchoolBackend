@@ -19,7 +19,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [HttpGet("/admin/assessments")]
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetAssessments(int? learnerId, int? taskId, string? assessmentGrade, DateTime? dateFrom,
-                                                    DateTime? dateTo, string SortOrder, string sortProperty, bool pageable, int page, int pageSize)
+                                                    DateTime? dateTo, string SortOrder, string sortProperty, int page, int pageSize)
         {
             // LearnerId может оказаться TaskId.
             var collection = from assessment in _context.Assessments
@@ -132,23 +132,18 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     break;
             }
 
-            if (pageable)
-            {
-                Pagination pagination = new Pagination();
+            Pagination pagination = new Pagination();
 
-                pagination.Page = page;
-                pagination.PageSize = pageSize;
-                pagination.TotalElements = content.Count();
-                pagination.TotalPages = content.Count() / pageSize;
+            pagination.Page = page;
+            pagination.PageSize = pageSize;
+            pagination.TotalElements = content.Count();
+            pagination.TotalPages = content.Count() / pageSize;
 
-                AssessmentPageDTO result = new AssessmentPageDTO();
-                result.pagination = pagination;
-                result.content = content;
+            AssessmentPageDTO result = new AssessmentPageDTO();
+            result.pagination = pagination;
+            result.content = content;
 
-                return Ok(result);
-            }
-
-            return Ok(content);
+            return Ok(result);
         }
 
 
@@ -331,8 +326,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// </summary>
         /// <param name="learnerId"></param>
         /// <returns></returns>
-        [HttpGet("/assessments/final-grades")]
-        [Authorize]
+        [HttpGet("admin/assessments/final-grades")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetFinalGrade(int learnerId)
         {
             // Проверим, есть ли такой ученик в БД.
@@ -572,7 +567,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <param name="taskType"></param>
         /// <param name="learnerId"></param>
         /// <returns></returns>
-        [HttpGet("/learner/assessments/final")]
+        [HttpGet("/learner/assessments")]
         [Authorize(Roles = Roles.Learner)]
         public async Task<ActionResult> LearnerGetAssessments([Required] string taskType, [Required] int learnerId)
         {
@@ -608,6 +603,84 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
                 result.Add(newDTO);
             }
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Метод, который позволяет ученику увидеть собственную финальную оценку.
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("learner/assessments/final-grades")]
+        [Authorize(Roles = Roles.Learner)]
+        public async Task<ActionResult> LearnerGetFinalGrades()
+        {
+            // Для начала, узнаем ID ученика по данных об авторизации.
+            int learnerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
+
+            // Высчитываем все коэффициенты оценки.
+
+            double hw = GetFinalGradeByType("HW", learnerId);
+            double test = GetFinalGradeByType("Testing", learnerId);
+            double competition = GetFinalGradeByType("Competitions", learnerId);
+            double exam = GetFinalGradeByType("Exams", learnerId);
+            double attendance = GetFinalAttendGrade(learnerId);
+
+            // Высчитываем формулу.
+
+            double hwMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "HW").Weight;
+            double testMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Testing").Weight;
+            double competitionMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Competitions").Weight;
+            double examMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Exams").Weight;
+            double attendMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Attendance").Weight;
+
+            double? bonusNullable = _context.Learner.Find(learnerId).GradeBonus;
+            double bonus = 0;
+
+            if (bonusNullable != null)
+            {
+                bonus = bonusNullable.Value;
+            }
+
+            double total = Math.Round(hw * hwMult + testMult * testMult + competition * competitionMult +
+                exam * examMult + attendance * attendMult + bonus, 2);
+
+            // Теперь, когда все значения посчитаны, нужно послать эти данные с помощью DTO.
+            // Запакуем их...
+
+            List<FinalAssessmentDTO> assessments = new List<FinalAssessmentDTO>();
+
+            FinalAssessmentDTO hwDTO = new FinalAssessmentDTO();
+            hwDTO.finalAssessment = Math.Round(hw * hwMult, 2);
+            hwDTO.type = "HW";
+            assessments.Add(hwDTO);
+
+            FinalAssessmentDTO testDTO = new FinalAssessmentDTO();
+            testDTO.finalAssessment = Math.Round(test * testMult, 2);
+            testDTO.type = "Testing";
+            assessments.Add(testDTO);
+
+            FinalAssessmentDTO compDTO = new FinalAssessmentDTO();
+            compDTO.finalAssessment = Math.Round(competition * competitionMult, 2);
+            compDTO.type = "Competitions";
+            assessments.Add(compDTO);
+
+            FinalAssessmentDTO examDTO = new FinalAssessmentDTO();
+            examDTO.finalAssessment = Math.Round(exam * examMult, 2);
+            examDTO.type = "Exams";
+            assessments.Add(examDTO);
+
+            FinalAssessmentDTO attendDTO = new FinalAssessmentDTO();
+            attendDTO.finalAssessment = Math.Round(attendance * attendMult, 2);
+            attendDTO.type = "Attendance";
+            assessments.Add(attendDTO);
+
+            FinalGradeDTO result = new FinalGradeDTO();
+            result.assessments = assessments;
+            result.bonus = bonus;
+            result.total = total;
+
+            // И пошлём.
 
             return Ok(result);
         }

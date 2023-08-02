@@ -19,7 +19,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [HttpGet("/admin/solutions")]
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> AdminGetSolutions([Required] int taskId, int? learnerId, int? teamId,
-                                    string sortProperty, string sortOrder, bool pageable, int page, int pageSize)
+                                    string sortProperty, string sortOrder, int page, int pageSize)
         {
             if(!ModelState.IsValid)
             {
@@ -130,17 +130,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             SolutionListDTO result = new SolutionListDTO();
             result.content = content;
 
-            if (pageable)
-            {
-                Pagination pagination = new Pagination();
+            Pagination pagination = new Pagination();
 
-                pagination.Page = page;
-                pagination.PageSize = pageSize;
-                pagination.TotalElements = content.Count();
-                pagination.TotalPages = (content.Count()/pageSize) + 1;
+            pagination.Page = page;
+            pagination.PageSize = pageSize;
+            pagination.TotalElements = content.Count();
+            pagination.TotalPages = (content.Count()/pageSize) + 1;
 
-                result.pagination = pagination;
-            }
+            result.pagination = pagination;
 
             return Ok(result);
         }
