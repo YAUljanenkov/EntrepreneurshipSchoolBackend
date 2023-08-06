@@ -28,7 +28,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
         [HttpGet("/admin/accounts")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetAccounts([FromBody] AccountsComplexRequest request)
+        public async Task<ActionResult> GetAccounts(AccountsComplexRequest request)
         {
             var relevant_data = _context.Learner
             .Include(x => x.Relate)
@@ -139,16 +139,19 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 same_properties.Add("email");
             }
+
             intersect = _context.Learner.FirstOrDefault(ob => ob.Phone == user.phone);
             if (intersect != null)
             {
                 same_properties.Add("phone");
             }
+
             if (same_properties.Count > 0)
             {
                 return StatusCode(409, same_properties);
             }
-            if (user.role !=  Roles.Tracker && user.role != Roles.Learner)
+
+            if (user.role != Roles.Tracker && user.role != Roles.Learner)
             {
                 return BadRequest("bad role");
             }
@@ -160,7 +163,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.Messenger = user.messenger;
             newLearner.EmailLogin = user.email;
             newLearner.Phone = user.phone;
-            newLearner.Password = AuthController.HashPassword(user.password);
+            newLearner.Password = Hashing.HashPassword(user.password);
             newLearner.IsTracker = user.role == Roles.Learner ? '0' : '1';
             if (user.gender != null)
             {
@@ -171,7 +174,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.GradeBonus = 0;
 
             _context.Learner.Add(newLearner);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return Ok();
         }

@@ -1,5 +1,6 @@
 using System.Reflection;
 using EntrepreneurshipSchoolBackend.Models;
+using EntrepreneurshipSchoolBackend.Utility;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,8 +12,6 @@ namespace EntrepreneurshipSchoolBackend;
 
 public class Startup
 {
-    // private String connectionString = "host=localhost;port=5432;database=database;username=admin;password=password";
-
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
     {
@@ -84,17 +83,18 @@ public class Startup
     public void StartupRecords()
     {
         var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+
         var opt = new DbContextOptionsBuilder<ApiDbContext>()
             .UseNpgsql(connectionString)
             .Options;
 
         var cont = new ApiDbContext(opt);
-        
-        if (!cont.Admins.Any(x => x.EmailLogin == "admin"))
+
+        if (!cont.Admins.Any(x => x.EmailLogin == Properties.AdminLogin))
         {
             // Не забыть поменять перед релизом))
             cont.Admins.Add(new Admin
-                { EmailLogin = "admin", Password = Controllers.AuthController.HashPassword("password") });
+                { EmailLogin = "admin", Password = Hashing.HashPassword(Properties.AdminPassword) });
         }
 
         if (cont.TransactionTypes.Count() != 8)
