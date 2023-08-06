@@ -7,11 +7,6 @@ public class ApiDbContext : DbContext
 {
     public ApiDbContext(DbContextOptions<ApiDbContext> options): base(options)
     {
-        while (!Database?.CanConnect() ?? true)
-        {
-            
-        }
-        this.Database?.EnsureCreated();
     }
     public DbSet<Admin> Admins { get; set; }
     public DbSet<AssessmentsType> AssessmentsTypes { get; set; }
