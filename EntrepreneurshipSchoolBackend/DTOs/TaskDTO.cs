@@ -71,4 +71,12 @@
         public TaskOutputDTO task { get; set; }
         public DateTime deadline { get; set; }
     }
+
+    public class TrackerTaskDTO
+    {
+        public TaskOutputDTO task { get; set; }
+        public DateTime deadline { get; set; }
+        public int submittedNumber { get; set; }
+        public int notEvaluatedNumber { get; set; }
+    }
 }

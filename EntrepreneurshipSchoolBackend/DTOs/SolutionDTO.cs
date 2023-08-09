@@ -37,4 +37,33 @@ namespace EntrepreneurshipSchoolBackend.DTOs
         public int fileId { get; set; }
         public List<AssessmentTrackerDTO> trackerAssessments { get; set; }
     }
+
+    /// <summary>
+    /// Объект, который используется для трекерского списка сданных решений.
+    /// </summary>
+    public class TrackerSeeSolutionDTO
+    {
+        public int id { get; set; }
+        public string Name { get; set; }
+        public DateTime? completedDateTime { get; set; }
+        public int? assessment { get; set; }
+    }
+
+    /// <summary>
+    /// Объект, который используется для просмотра подробной информации о решении трекером.
+    /// </summary>
+    public class TrackerInspectSolutionDTO
+    {
+        public int id { get; set; }
+        public LearnerShortDTO learner { get; set; }
+        public ShortenTeamInfo team { get; set; }
+
+        public TaskSolutionDTO task { get; set; }
+
+        public DateTime completeDateTime { get; set; }
+
+        public int fileId { get; set; }
+        public string? comment { get; set; }
+        public int? assessment { get; set; }
+    }
 }

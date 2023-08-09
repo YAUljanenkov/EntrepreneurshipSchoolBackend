@@ -72,51 +72,51 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     case "deadline":
                         if (sortOrder == "asc")
                         {
-                            tasks.OrderBy(task => task.Deadline);
+                            tasks = tasks.OrderBy(task => task.Deadline).ToList();
                         }
                         else
                         {
-                            tasks.OrderByDescending(task => task.Deadline);
+                            tasks = tasks.OrderByDescending(task => task.Deadline).ToList();
                         }
                         break;
                     case "link":
                         if (sortOrder == "asc")
                         {
-                            tasks.OrderBy(task => task.Link);
+                            tasks = tasks.OrderBy(task => task.Link).ToList();
                         }
                         else
                         {
-                            tasks.OrderByDescending(task => task.Link);
+                            tasks = tasks.OrderByDescending(task => task.Link).ToList();
                         }
                         break;
                     case "title":
                         if (sortOrder == "asc")
                         {
-                            tasks.OrderBy(task => task.Title);
+                            tasks = tasks.OrderBy(task => task.Title).ToList();
                         }
                         else
                         {
-                            tasks.OrderByDescending(task => task.Title);
+                            tasks = tasks.OrderByDescending(task => task.Title).ToList();
                         }
                         break;
                     case "taskType":
                         if (sortOrder == "asc")
                         {
-                            tasks.OrderBy(task => task.Type.Id);
+                            tasks = tasks.OrderBy(task => task.Type.Id).ToList();
                         }
                         else
                         {
-                            tasks.OrderByDescending(task => task.Type.Id);
+                            tasks = tasks.OrderByDescending(task => task.Type.Id).ToList();
                         }
                         break;
                     case "lesson":
                         if (sortOrder == "asc")
                         {
-                            tasks.OrderBy(task => task.Lesson.Number);
+                            tasks = tasks.OrderBy(task => task.Lesson.Number).ToList();
                         }
                         else
                         {
-                            tasks.OrderByDescending(task => task.Lesson.Number);
+                            tasks = tasks.OrderByDescending(task => task.Lesson.Number).ToList();
                         }
                         break;
                     default:
