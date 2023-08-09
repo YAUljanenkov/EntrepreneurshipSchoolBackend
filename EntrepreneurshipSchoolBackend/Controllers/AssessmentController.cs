@@ -83,51 +83,51 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 case "Name":
                     if (SortOrder == "asc")
                     {
-                        content.OrderBy(content => content.learner.Name);
+                        content = content.OrderBy(content => content.learner.Name).ToList();
                     }
                     else if (SortOrder == "desc")
                     {
-                        content.OrderByDescending(content => content.learner.Name);
+                        content = content.OrderByDescending(content => content.learner.Name).ToList();
                     }
                     break;
                 case "Task":
                     if (SortOrder == "asc")
                     {
-                        content.OrderBy(content => _context.Tasks.Find(content.task.Id));
+                        content = content.OrderBy(content => _context.Tasks.Find(content.task.Id)).ToList();
                     }
                     else if (SortOrder == "desc")
                     {
-                        content.OrderByDescending(content => _context.Tasks.Find(content.task.Id));
+                        content = content.OrderByDescending(content => _context.Tasks.Find(content.task.Id)).ToList();
                     }
                     break;
                 case "Date":
                     if (SortOrder == "asc")
                     {
-                        content.OrderBy(content => content.issueDate);
+                        content = content.OrderBy(content => content.issueDate).ToList();
                     }
                     else if (SortOrder == "desc")
                     {
-                        content.OrderByDescending(content => content.issueDate);
+                        content = content.OrderByDescending(content => content.issueDate).ToList();
                     }
                     break;
                 case "Type":
                     if (SortOrder == "asc")
                     {
-                        content.OrderBy(content => content.assessmentType.Name);
+                        content = content.OrderBy(content => content.assessmentType.Name).ToList();
                     }
                     else if (SortOrder == "desc")
                     {
-                        content.OrderByDescending(content => content.assessmentType.Name);
+                        content = content.OrderByDescending(content => content.assessmentType.Name).ToList();
                     }
                     break;
                 case "Grade":
                     if (SortOrder == "asc")
                     {
-                        content.OrderBy(content => content.assessment);
+                        content = content.OrderBy(content => content.assessment).ToList();
                     }
                     else if (SortOrder == "desc")
                     {
-                        content.OrderByDescending(content => content.assessment);
+                        content = content.OrderByDescending(content => content.assessment).ToList();
                     }
                     break;
             }
