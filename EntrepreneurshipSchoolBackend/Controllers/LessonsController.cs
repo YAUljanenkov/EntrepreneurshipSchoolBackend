@@ -25,53 +25,34 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
         [HttpGet("/admin/lessons")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetLessons([FromBody] LessonComplexRequest request)
+        public async Task<ActionResult> GetLessons([FromQuery] LessonComplexRequest request)
         {
+            if (request.sortProperty != null && !new[] { "lessonnumber", "lessontitle", "id" }.Contains(
+                request.sortProperty.ToLower()))
+            {
+                return BadRequest("Bad sort property");
+            }
             var relevant_data = _context.Lessons
             .Include(x => x.Tasks)
             .Where(x => request.lessonNumber == null || x.Number.Equals(request.lessonNumber))
             .Where(x => request.lessonTitle == null || x.Title == request.lessonTitle)
-            .ToList();
-            
-            if (request.sortProperty != null)
+            ;
+
+            relevant_data = request.sortProperty?.ToLower() switch
             {
-                if (request.sortOrder == "desc")
-                {
-                    switch (request.sortProperty)
-                    {
-                        case "lessonNumber":
-                            relevant_data.OrderByDescending(x=>x.Number);
-                            break;
-                        case "lessonTitle":
-                            relevant_data.OrderByDescending(x => x.Title);
-                            break;
-                        case "id":
-                            relevant_data.OrderByDescending(x => x.Id);
-                            break;
-                        default:
-                            return BadRequest("Invalid sortby parametr");
+                "id" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Id)
+                    : relevant_data.OrderBy(x => x.Id),
+                "lessonnumber" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Number)
+                    : relevant_data.OrderBy(x => x.Number),
+                "lessontitle" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Title)
+                    : relevant_data.OrderBy(x => x.Title),
+                _ => relevant_data
+            };
 
-                    }
-                }
-                else
-                {
-                    switch (request.sortProperty)
-                    {
-                        case "lessonNumber":
-                            relevant_data.OrderBy(x => x.Number);
-                            break;
-                        case "lessonTitle":
-                            relevant_data.OrderBy(x => x.Title);
-                            break;
-                        case "id":
-                            relevant_data.OrderBy(x => x.Id);
-                            break;
-                        default:
-                            return BadRequest("Invalid sortby parametr");
-
-                    }
-                }
-            }
+            var relevant_data_list = relevant_data.ToList();
             if (request.pageable)
             {
                 if (request.page == null || request.pageSize == null)
@@ -79,7 +60,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     request.page = 1;
                     request.pageSize = 10;
                 }
-                var lessOnThePage = relevant_data.Skip(request.pageSize.Value * (request.page.Value - 1)).Take(request.pageSize.Value);
+                var lessOnThePage = relevant_data_list.Skip(request.pageSize.Value * (request.page.Value - 1)).Take(request.pageSize.Value);
                 if (lessOnThePage.Count() == 0)
                 {
                     return BadRequest("page number is too big");
@@ -95,10 +76,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     content.Add(info);
                 }
                 Pagination pagination = new Pagination();
-                pagination.TotalElements = relevant_data.Count();
-                pagination.TotalPages = (relevant_data.Count() + request.pageSize.Value - 1) / request.pageSize.Value;
-                pagination.PageSize = content.Count;
-                pagination.Page = request.page.Value;
+                pagination.total_elements = relevant_data_list.Count();
+                pagination.total_pages = (relevant_data_list.Count() + request.pageSize.Value - 1) / request.pageSize.Value;
+                pagination.pageSize = content.Count;
+                pagination.page_number = request.page.Value;
                 LessonResponse response = new LessonResponse();
                 response.content = content;
                 response.pagination = pagination;
@@ -106,7 +87,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             } else
             {
                 List<LessonInfo> content = new List<LessonInfo>();
-                foreach (var les in relevant_data)
+                foreach (var les in relevant_data_list)
                 {
                     LessonInfo info = new LessonInfo();
                     info.id = les.Id;

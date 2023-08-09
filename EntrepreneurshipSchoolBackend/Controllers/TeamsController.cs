@@ -24,47 +24,32 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
         [HttpGet("/admin/teams")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetTeams([FromBody] TeamsComplexRequest request)
+        public async Task<ActionResult> GetTeams([FromQuery] TeamsComplexRequest request)
         {
+            if (request.sortProperty != null && !new[] { "teamnumber", "id" }.Contains(
+                request.sortProperty.ToLower()))
+            {
+                return BadRequest("Bad sort property");
+            }
+
             var relevant_data = _context.Groups
             .Where(x => request.teamNumber == null || x.Number == request.teamNumber)
-            .ToList();
-
-            if (request.sortProperty != null)
+            ;
+            relevant_data = request.sortProperty?.ToLower() switch
             {
-                if (request.sortOrder == "desc")
-                {
-                    switch (request.sortProperty)
-                    {
-                        case "teamNumber":
-                            relevant_data.OrderByDescending(x => x.Number);
-                            break;
-                        case "id":
-                            relevant_data.OrderByDescending(x => x.Id);
-                            break;
-                        default:
-                            return BadRequest("Invalid sortby parametr");
+                "id" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Id)
+                    : relevant_data.OrderBy(x => x.Id),
+                "teamnumber" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Number)
+                    : relevant_data.OrderBy(x => x.Number),
+                _ => relevant_data
+            };
 
-                    }
-                }
-                else
-                {
-                    switch (request.sortProperty)
-                    {
-                        case "teamNumber":
-                            relevant_data.OrderBy(x => x.Number);
-                            break;
-                        
-                        case "id":
-                            relevant_data.OrderBy(x => x.Id);
-                            break;
-                        default:
-                            return BadRequest("Invalid sortby parametr");
+            var relevant_data_list = relevant_data.ToList();
+            
 
-                    }
-                }
-            }
-            var teamsOnThePage = relevant_data.Skip(request.pageSize * (request.page - 1)).Take(request.pageSize);
+            var teamsOnThePage = relevant_data_list.Skip(request.pageSize * (request.page - 1)).Take(request.pageSize);
             if (teamsOnThePage == null)
             {
                 return BadRequest("page number is too big");
@@ -79,10 +64,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 content.Add(info);
             }
             Pagination pagination = new Pagination();
-            pagination.TotalElements = relevant_data.Count();
-            pagination.TotalPages = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
-            pagination.PageSize = content.Count;
-            pagination.Page = request.page;
+            pagination.total_elements = relevant_data_list.Count();
+            pagination.total_pages = (relevant_data_list.Count() + request.pageSize - 1) / request.pageSize;
+            pagination.pageSize = content.Count;
+            pagination.page_number = request.page;
             TeamComplexResponse response = new TeamComplexResponse();
             response.content = content;
             response.pagination = pagination;
