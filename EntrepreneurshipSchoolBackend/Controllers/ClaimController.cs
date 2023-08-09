@@ -45,7 +45,8 @@ public class ClaimController : ControllerBase
     /// <returns>A list of claims with pagination info.</returns>
     [HttpGet("/admin/claims")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult getAdminClaims(string claimType, string? claimStatus, int? lotNumber, int? learnerId,
+    public async Task<IActionResult> getAdminClaims(string claimType, string? claimStatus, int? lotNumber,
+        int? learnerId,
         int? taskId, int? receiverId, string? dateFrom, string? dateTo, string? sortProperty, string? sortOrder,
         int? page, int? pageSize)
     {
@@ -154,7 +155,7 @@ public class ClaimController : ControllerBase
             _ => query
         };
 
-        var size = query.Count();
+        var size = await query.CountAsync();
 
         var result = new
         {
@@ -165,10 +166,10 @@ public class ClaimController : ControllerBase
                 totalPages = Math.Ceiling(size / (double)(pageSize ?? 10)),
                 totalElements = size
             },
-            content = query
-                .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
-                .Take(pageSize ?? 10)
-                .AsEnumerable()
+            content = (await query
+                    .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
+                    .Take(pageSize ?? 10)
+                    .ToListAsync())
                 .Select(x => new ClaimDTO(x))
         };
 
@@ -182,7 +183,7 @@ public class ClaimController : ControllerBase
     /// <returns>200</returns>
     [HttpPut("/admin/claims")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult reactToClaim(ClaimResponseDTO response)
+    public async Task<IActionResult> reactToClaim(ClaimResponseDTO response)
     {
         if (!new[] { "Approve", "Reject" }.Contains(response.action))
         {
@@ -194,29 +195,29 @@ public class ClaimController : ControllerBase
             return new NotFoundObjectResult("Claim not found.");
         }
 
-        var claim = _context.Claim
+        var claim = await _context.Claim
             .Include(x => x.Type)
             .Include(x => x.Learner)
             .Include(x => x.Status)
             .Include(x => x.Task)
             .Include(x => x.Receiver)
             .Include(x => x.Lot)
-            .First(x => x.Id == response.id);
+            .FirstAsync(x => x.Id == response.id);
 
         if (claim.Status.Name != "Waiting")
         {
             return new ObjectResult("Claim already approved or rejected.") { StatusCode = 409 };
         }
-        
+
         var status = response.action == "Approve"
-            ? _context.ClaimStatuses.First(x => x.Name == "Approved")
-            : _context.ClaimStatuses.First(x => x.Name == "Declined");
+            ? await _context.ClaimStatuses.FirstAsync(x => x.Name == "Approved")
+            : await _context.ClaimStatuses.FirstAsync(x => x.Name == "Declined");
         claim.Status = status;
 
         if (response.fine != null && response.action == "Approve" && claim.Type.Name == "DeadlineFailed")
         {
             claim.Sum = response.fine;
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "FailedDeadline");
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "FailedDeadline");
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.FailedDeadline(claim),
@@ -228,11 +229,13 @@ public class ClaimController : ControllerBase
 
         if (claim.Type.Name == "BuyingLot" && response.action == "Approve")
         {
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "SellLot");
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "SellLot");
             if (claim.Lot != null)
             {
-                var lotLearner = _context.Lots.Include(x => x.Learner).First(x => claim.Lot.Id == x.Id).Learner;
-                if (lotLearner != null) {
+                var lotLearner = (await _context.Lots.Include(x => x.Learner).FirstAsync(x => claim.Lot.Id == x.Id))
+                    .Learner;
+                if (lotLearner != null)
+                {
                     var transaction = new Transaction
                     {
                         Type = transactionType, Claim = claim, Comment = TransactionComments.LotIncome(claim),
@@ -246,7 +249,7 @@ public class ClaimController : ControllerBase
 
         if (claim.Type.Name == "BuyingLot" && response.action == "Reject")
         {
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "BuyLot");
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "BuyLot");
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.ReturnLot(claim),
@@ -258,7 +261,7 @@ public class ClaimController : ControllerBase
 
         if (claim.Type.Name == "PlacingLot" && response.action == "Approve")
         {
-            var number = _context.Lots.OrderByDescending(x => x.Number).FirstOrDefault()?.Number;
+            var number = (await _context.Lots.OrderByDescending(x => x.Number).FirstOrDefaultAsync())?.Number;
             number = number == null ? 1 : number + 1;
             var lot = new Lot
             {
@@ -275,7 +278,7 @@ public class ClaimController : ControllerBase
 
         if (claim.Type.Name == "Transfer" && response.action == "Approve")
         {
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "TransferIncome");
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "TransferIncome");
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.TransferIncome(claim),
@@ -287,7 +290,7 @@ public class ClaimController : ControllerBase
 
         if (claim.Type.Name == "Transfer" && response.action == "Reject")
         {
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "TransferOutcome");
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "TransferOutcome");
             var transaction = new Transaction
             {
                 Type = transactionType, Claim = claim, Comment = TransactionComments.TransferOutcomeReject(claim),
@@ -297,7 +300,7 @@ public class ClaimController : ControllerBase
             claim.Learner.Balance += claim.Sum ?? 0;
         }
 
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
         return new OkResult();
     }
 
@@ -308,21 +311,21 @@ public class ClaimController : ControllerBase
     /// <returns>Claim object.</returns>
     [HttpGet("/admin/claims/{id:int}")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult getClaimById(int id)
+    public async Task<IActionResult> getClaimById(int id)
     {
-        if (!_context.Claim.Any(x => x.Id == id))
+        if (!await _context.Claim.AnyAsync(x => x.Id == id))
         {
             return new NotFoundResult();
         }
 
-        var claim = _context.Claim
+        var claim = await _context.Claim
             .Include(x => x.Learner)
             .Include(x => x.Receiver)
             .Include(x => x.Type)
             .Include(x => x.Task)
             .Include(x => x.Status)
             .Include(x => x.Lot)
-            .First(x => x.Id == id);
+            .FirstAsync(x => x.Id == id);
         return new OkObjectResult(new ClaimInfoDTO(claim));
     }
 
@@ -332,15 +335,15 @@ public class ClaimController : ControllerBase
     /// <returns>The response contains an array of objects, each of which corresponds to one of the request types and contains the number of requests of this type with the status = Waiting.</returns>
     [HttpGet("/admin/claims/new-amount")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult getWaitingClaimsAmount()
+    public async Task<IActionResult> getWaitingClaimsAmount()
     {
-        return new OkObjectResult(_context.ClaimTypes.Select(claimType => new
+        return new OkObjectResult(await _context.ClaimTypes.Select(claimType => new
         {
             claimType = claimType.Name,
             amount = _context.Claim.Count(x => x.Type == claimType && x.Status.Name == "Waiting")
-        }));
+        }).ToListAsync());
     }
-    
+
     /// <summary>
     /// Get list of claims by filter and sort.
     /// </summary>
@@ -355,7 +358,8 @@ public class ClaimController : ControllerBase
     /// <returns>list of claims with pagination info.</returns>
     [HttpGet("/learner/claims")]
     [Authorize(Roles = Roles.Learner)]
-    public IActionResult getLearnerClaims(string? claimType, string? claimStatus, string? dateFrom, string? dateTo,
+    public async Task<IActionResult> getLearnerClaims(string? claimType, string? claimStatus, string? dateFrom,
+        string? dateTo,
         string? sortProperty, string? sortOrder, int? page, int? pageSize)
     {
         if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
@@ -363,12 +367,12 @@ public class ClaimController : ControllerBase
             return new BadRequestResult();
         }
 
-        if (!_context.Learner.Any(x => x.Id == learnerId))
+        if (!await _context.Learner.AnyAsync(x => x.Id == learnerId))
         {
             return new UnauthorizedResult();
         }
 
-        var learner = _context.Learner.First(x => x.Id == learnerId);
+        var learner = await _context.Learner.FirstAsync(x => x.Id == learnerId);
 
         if (claimType != null && !new[] { "BuyingLot", "FailedDeadline", "PlacingLot", "Transfer" }.Contains(claimType))
         {
@@ -429,7 +433,7 @@ public class ClaimController : ControllerBase
             .Where(x => dateFromValue == DateTime.MinValue || dateFromValue < x.Date)
             .Where(x => dateToValue == DateTime.MinValue || dateToValue > x.Date);
 
-        
+
         query = sortProperty?.ToLower() switch
         {
             "id" => sortOrder == "desc" ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id),
@@ -447,7 +451,7 @@ public class ClaimController : ControllerBase
             _ => query
         };
 
-        var size = query.Count();
+        var size = await query.CountAsync();
 
         var result = new
         {
@@ -458,10 +462,10 @@ public class ClaimController : ControllerBase
                 totalPages = Math.Ceiling(size / (double)(pageSize ?? 10)),
                 totalElements = size
             },
-            content = query
-                .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
-                .Take(pageSize ?? 10)
-                .AsEnumerable()
+            content = (await query
+                    .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
+                    .Take(pageSize ?? 10)
+                    .ToListAsync())
                 .Select(x => new ClaimDTO(x))
         };
 
@@ -475,26 +479,26 @@ public class ClaimController : ControllerBase
     /// <returns>200</returns>
     [HttpPost("/learner/claims")]
     [Authorize(Roles = Roles.Learner)]
-    public IActionResult createClaim(CreateClaimDTO newClaim)
+    public async Task<IActionResult> createClaim(CreateClaimDTO newClaim)
     {
         if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
         {
             return new BadRequestResult();
         }
 
-        if (!_context.Learner.Any(x => x.Id == learnerId))
+        if (!await _context.Learner.AnyAsync(x => x.Id == learnerId))
         {
             return new UnauthorizedResult();
         }
 
-        var learner = _context.Learner.First(x => x.Id == learnerId);
+        var learner = await _context.Learner.FirstAsync(x => x.Id == learnerId);
 
         if (!new[] { "BuyingLot", "PlacingLot", "Transfer" }.Contains(newClaim.claimType))
         {
             return new BadRequestObjectResult("Some of the crucial properties have not been specified");
         }
 
-        var claimStatus = _context.ClaimStatuses.First(x => x.Name == "Waiting");
+        var claimStatus = await _context.ClaimStatuses.FirstAsync(x => x.Name == "Waiting");
         if (newClaim.claimType == "BuyingLot")
         {
             if (newClaim.buyingLotId == null)
@@ -502,13 +506,13 @@ public class ClaimController : ControllerBase
                 return new BadRequestObjectResult("Some of the crucial properties have not been specified");
             }
 
-            if (!_context.Lots.Any(x => x.Id == newClaim.buyingLotId))
+            if (!await _context.Lots.AnyAsync(x => x.Id == newClaim.buyingLotId))
             {
                 return new NotFoundObjectResult("Lot not found.");
             }
 
-            var lot = _context.Lots.First(x => x.Id == newClaim.buyingLotId);
-            var claimType = _context.ClaimTypes.First(x => x.Name == "BuyingLot");
+            var lot = await _context.Lots.FirstAsync(x => x.Id == newClaim.buyingLotId);
+            var claimType = await _context.ClaimTypes.FirstAsync(x => x.Name == "BuyingLot");
             var claim = new Claim
             {
                 Learner = learner,
@@ -523,7 +527,8 @@ public class ClaimController : ControllerBase
             {
                 return new ObjectResult("Not enough money") { StatusCode = 403 };
             }
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "BuyLot");
+
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "BuyLot");
             var transaction = new Transaction
             {
                 Type = transactionType,
@@ -538,7 +543,7 @@ public class ClaimController : ControllerBase
 
             _context.Claim.Add(claim);
             _context.Transactions.Add(transaction);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
         if (newClaim.claimType == "PlacingLot")
@@ -548,7 +553,7 @@ public class ClaimController : ControllerBase
                 return new BadRequestObjectResult("Some of the crucial properties have not been specified");
             }
 
-            var claimType = _context.ClaimTypes.First(x => x.Name == "PlacingLot");
+            var claimType = await _context.ClaimTypes.FirstAsync(x => x.Name == "PlacingLot");
             var claim = new Claim
             {
                 Learner = learner,
@@ -562,7 +567,7 @@ public class ClaimController : ControllerBase
             };
 
             _context.Claim.Add(claim);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
         if (newClaim.claimType == "Transfer")
@@ -572,19 +577,19 @@ public class ClaimController : ControllerBase
                 return new BadRequestObjectResult("Some of the crucial properties have not been specified");
             }
 
-            if (!_context.Learner.Any(x => x.Id == newClaim.receiverId))
+            if (!await _context.Learner.AnyAsync(x => x.Id == newClaim.receiverId))
             {
                 return new NotFoundObjectResult("Receiver not found.");
             }
-            
+
             if (newClaim.sum > learner.Balance)
             {
                 return new ObjectResult("Not enough money") { StatusCode = 403 };
             }
 
-            var receiver = _context.Learner.First(x => x.Id == newClaim.receiverId);
+            var receiver = await _context.Learner.FirstAsync(x => x.Id == newClaim.receiverId);
 
-            var claimType = _context.ClaimTypes.First(x => x.Name == "Transfer");
+            var claimType = await _context.ClaimTypes.FirstAsync(x => x.Name == "Transfer");
 
             var claim = new Claim
             {
@@ -595,7 +600,7 @@ public class ClaimController : ControllerBase
                 Date = DateTime.Now.ToUniversalTime(),
                 Receiver = receiver
             };
-            var transactionType = _context.TransactionTypes.First(x => x.Name == "TransferOutcome");
+            var transactionType = await _context.TransactionTypes.FirstAsync(x => x.Name == "TransferOutcome");
             var transaction = new Transaction
             {
                 Type = transactionType,
@@ -610,7 +615,7 @@ public class ClaimController : ControllerBase
 
             _context.Claim.Add(claim);
             _context.Transactions.Add(transaction);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
         return new OkResult();

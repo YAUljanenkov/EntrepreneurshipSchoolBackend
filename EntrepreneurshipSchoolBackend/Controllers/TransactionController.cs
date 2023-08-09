@@ -39,24 +39,24 @@ public class TransactionController : ControllerBase
     /// <returns>A list of transactions with pagination info.</returns>
     [HttpGet("/admin/transactions")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult GetAdminTransactions(int? learnerId, string? transactionType, string? dateFrom,
+    public async Task<IActionResult> GetAdminTransactions(int? learnerId, string? transactionType, string? dateFrom,
         string? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
     {
-        if (learnerId != null && !_context.Learner.Any(x => x.Id == learnerId))
+        if (learnerId != null && !await _context.Learner.AnyAsync(x => x.Id == learnerId))
         {
             return new NotFoundResult();
         }
 
         TransactionType? type = null;
 
-        if (transactionType != null && !_context.TransactionTypes.Any(x => x.Name == transactionType))
+        if (transactionType != null && !await _context.TransactionTypes.AnyAsync(x => x.Name == transactionType))
         {
             return new BadRequestObjectResult("Incorrect parameters.");
         }
 
-        if (_context.TransactionTypes.Any(x => x.Name == transactionType))
+        if (await _context.TransactionTypes.AnyAsync(x => x.Name == transactionType))
         {
-            type = _context.TransactionTypes.First(x => x.Name == transactionType);
+            type = await _context.TransactionTypes.FirstAsync(x => x.Name == transactionType);
         }
 
         DateTime dateFromValue = DateTime.MinValue, dateToValue = DateTime.MinValue;
@@ -125,7 +125,7 @@ public class TransactionController : ControllerBase
             _ => query
         };
 
-        var size = query.Count();
+        var size = await query.CountAsync();
 
         var result = new
         {
@@ -136,10 +136,10 @@ public class TransactionController : ControllerBase
                 totalPages = Math.Ceiling(size / (double)(pageSize ?? 10)),
                 totalElements = size
             },
-            content = query
-                .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
-                .Take(pageSize ?? 10)
-                .AsEnumerable()
+            content = (await query
+                    .Skip(page != null && pageSize != null ? ((int)page - 1) * (int)pageSize : 0)
+                    .Take(pageSize ?? 10)
+                    .ToListAsync())
                 .Select(x => new TransactionDTO(x))
         };
 
@@ -153,15 +153,15 @@ public class TransactionController : ControllerBase
     /// <returns>200 if all data is OK and transaction created.</returns>
     [HttpPost("/admin/transactions")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult createTransaction(CreateTransaction transaction)
+    public async Task<IActionResult> createTransaction(CreateTransaction transaction)
     {
-        if (!_context.Learner.Any(x => x.Id == transaction.learnerId))
+        if (!await _context.Learner.AnyAsync(x => x.Id == transaction.learnerId))
         {
             return new BadRequestResult();
         }
 
-        var learner = _context.Learner.First(x => x.Id == transaction.learnerId);
-        var type = _context.TransactionTypes.First(
+        var learner = await _context.Learner.FirstAsync(x => x.Id == transaction.learnerId);
+        var type = await _context.TransactionTypes.FirstAsync(
             x => x.Name == (transaction.sum > 0 ? "AdminIncome" : "AdminOutcome"));
         var newTransaction = new Transaction
         {
@@ -174,7 +174,7 @@ public class TransactionController : ControllerBase
 
         _context.Transactions.Add(newTransaction);
         learner.Balance += transaction.sum;
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
         return new OkResult();
     }
 
@@ -185,15 +185,15 @@ public class TransactionController : ControllerBase
     /// <returns>A transaction.</returns>
     [HttpGet("/admin/transactions/{id:int}")]
     [Authorize(Roles = Roles.Admin)]
-    public IActionResult getTransaction(int id)
+    public async Task<IActionResult> getTransaction(int id)
     {
-        if (!_context.Transactions.Any(x => x.Id == id))
+        if (!await _context.Transactions.AnyAsync(x => x.Id == id))
         {
             return new NotFoundResult();
         }
 
-        return new OkObjectResult(new TransactionDTO(_context.Transactions.Include(x => x.Learner).Include(x => x.Claim).Include(x => x.Type)
-            .First(x => x.Id == id)));
+        return new OkObjectResult(new TransactionDTO(await _context.Transactions.Include(x => x.Learner).Include(x => x.Claim).Include(x => x.Type)
+            .FirstAsync(x => x.Id == id)));
     }
 
     /// <summary>
@@ -209,7 +209,7 @@ public class TransactionController : ControllerBase
     /// <returns>A list of transactions with pagination info.</returns>
     [HttpGet("/learner/transactions")]
     [Authorize(Roles = Roles.Learner)]
-    public IActionResult GetLearnerTransactions(string? transactionType, string? dateFrom,
+    public async Task<IActionResult> GetLearnerTransactions(string? transactionType, string? dateFrom,
         string? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
     {
         if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
@@ -217,12 +217,12 @@ public class TransactionController : ControllerBase
             return new UnauthorizedResult();
         }
 
-        if (!_context.Learner.Any(x => x.Id == learnerId))
+        if (!await _context.Learner.AnyAsync(x => x.Id == learnerId))
         {
             return new UnauthorizedResult();
         }
 
-        return GetAdminTransactions(learnerId, transactionType, dateFrom, dateTo, sortProperty, sortOrder, page,
+        return await GetAdminTransactions(learnerId, transactionType, dateFrom, dateTo, sortProperty, sortOrder, page,
             pageSize);
     }
 }

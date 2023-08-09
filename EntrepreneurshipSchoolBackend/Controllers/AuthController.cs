@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Claim = System.Security.Claims.Claim;
 
 namespace EntrepreneurshipSchoolBackend.Controllers;
@@ -53,9 +54,9 @@ public class AuthController : ControllerBase
     {
         var claims = new List<Claim>();
         string role;
-        if (_context.Admins.Any(x => x.EmailLogin == model.login))
+        if (await _context.Admins.AnyAsync(x => x.EmailLogin == model.login))
         {
-            var admin = _context.Admins.First(x => x.EmailLogin == model.login);
+            var admin = await _context.Admins.FirstAsync(x => x.EmailLogin == model.login);
             if (!Hashing.VerifyHashedPassword(admin.Password, model.password))
             {
                 return NotFound();
@@ -65,9 +66,9 @@ public class AuthController : ControllerBase
             claims.Add(new Claim(ClaimTypes.Role, Roles.Admin));
             role = Roles.Admin;
         }
-        else if (_context.Learner.Any(x => x.EmailLogin == model.login))
+        else if (await _context.Learner.AnyAsync(x => x.EmailLogin == model.login))
         {
-            var learner = _context.Learner.First(x => x.EmailLogin == model.login);
+            var learner = await _context.Learner.FirstAsync(x => x.EmailLogin == model.login);
             if (!Hashing.VerifyHashedPassword(learner.Password, model.password))
             {
                 return NotFound();
@@ -86,7 +87,7 @@ public class AuthController : ControllerBase
         {
             return NotFound();
         }
-        
+
         ClaimsIdentity claimsIdentity = new ClaimsIdentity(claims, "Cookies");
         await Request.HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(claimsIdentity));
