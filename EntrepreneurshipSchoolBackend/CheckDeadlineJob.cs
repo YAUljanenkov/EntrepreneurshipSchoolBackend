@@ -40,7 +40,7 @@ public class CheckDeadlineJob : IJob
                 .Select(x => new MailboxAddress($"{x.Surname} {x.Name} {x.Lastname}", x.EmailLogin)).ToList();
             foreach (var task in tasks)
             {
-                // await Mail.SendMessages(trackers, Properties.NewTaskToCheck(task.Title), Properties.NewTaskToCheckMessage(task.Title));
+                await Mail.SendMessages(trackers, Properties.NewTaskToCheck(task.Title), Properties.NewTaskToCheckMessage(task.Title));
             }
         }
 
@@ -58,10 +58,6 @@ public class CheckDeadlineJob : IJob
             {
                 await Mail.SendMessages(learners, Properties.DeadlineIsSoonTitle(task.Title),
                     Properties.DeadlineSoonMessage(task.Title));
-                if (task.Lesson?.Number > 1)
-                {
-                    
-                }
             }
         }
     }
