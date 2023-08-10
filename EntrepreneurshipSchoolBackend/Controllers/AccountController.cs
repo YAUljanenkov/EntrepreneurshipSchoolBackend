@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -28,8 +28,18 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
         [HttpGet("/admin/accounts")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetAccounts(AccountsComplexRequest request)
+        public async Task<ActionResult> GetAccounts([FromQuery] AccountsComplexRequest request)
         {
+            if (request.role != null && request.role != "Learner" && request.role != "Tracker")
+            {
+                return BadRequest("bad role");
+            }
+            
+            if (request.sortProperty != null && !new[] { "id", "role", "name", "email", "balance"}.Contains(
+                request.sortProperty.ToLower()))
+            {
+                return BadRequest("Bad sort property");
+            }
             var relevant_data = _context.Learner
             .Include(x => x.Relate)
             .Where(x => request.name == null || x.Name.Equals(request.name.Split()[1])
@@ -37,67 +47,31 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             .Where(x=> request.email == null || x.EmailLogin == request.email)
             .Where(x=> request.role == null || x.IsTracker == (request.role == "Learner" ? '0' : '1'))
             .Where(x=> request.team == null || x.Relate.Any(m => m.Group != null && m.Group.Number == request.team))
-            .ToList();
-            
-            if (request.sortProperty != null)
+            ;
+
+            relevant_data = request.sortProperty?.ToLower() switch
             {
-                if (request.sortOrder == "desc")
-                {
-                    switch (request.sortProperty)
-                    {
-                        case "name":
-                            relevant_data.OrderByDescending(x => x.Name);
-                            break;
-                        case "email":
-                            relevant_data.OrderByDescending(x => x.EmailLogin);
-                            break;
-                        case "id":
+                "id" => request.sortOrder == "desc" 
+                    ? relevant_data.OrderByDescending(x => x.Id) 
+                    : relevant_data.OrderBy(x => x.Id),
+                "name" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Surname).ThenByDescending(x => x.Name)
+                        .ThenByDescending(x => x.Lastname)
+                    : relevant_data.OrderBy(x => x.Surname).ThenBy(x => x.Name).ThenBy(x => x.Lastname),
+                "email" => request.sortOrder == "desc" 
+                    ? relevant_data.OrderByDescending(x => x.EmailLogin) 
+                    : relevant_data.OrderBy(x => x.EmailLogin),
+                "role" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.IsTracker)
+                    : relevant_data.OrderBy(x => x.IsTracker),
+                "balance" => request.sortOrder == "desc"
+                    ? relevant_data.OrderByDescending(x => x.Balance)
+                    : relevant_data.OrderBy(x => x.Balance),
+                _ => relevant_data
+            };
 
-                            relevant_data.OrderByDescending(x => x.Id);
-                            break;
-                        case "role":
-
-                            relevant_data.OrderByDescending(x => x.IsTracker);
-                            break;
-                        case "balance":
-
-                            relevant_data.OrderByDescending(x => x.Balance);
-                            break;
-                        default:
-                            return BadRequest("Invalid sortby parametr");
-
-                    }
-                } else
-                {
-                    switch (request.sortProperty)
-                    {
-                        case "name":
-
-                            relevant_data.OrderBy(x => x.Name);
-                            break;
-                        case "email":
-
-                            relevant_data.OrderBy(x => x.EmailLogin);
-                            break;
-                        case "id":
-
-                            relevant_data.OrderBy(x => x.Id);
-                            break;
-                        case "role":
-
-                            relevant_data.OrderBy(x => x.IsTracker);
-                            break;
-                        case "balance":
-
-                            relevant_data.OrderBy(x => x.Balance);
-                            break;
-                        default:
-                            return BadRequest("Invalid sortby parametr");
-
-                    }
-                }
-            }
-            var accsOnThePage = relevant_data.Skip(request.pageSize * (request.page - 1)).Take(request.pageSize);
+            var relevant_data_list = relevant_data.ToList();
+            var accsOnThePage = relevant_data_list.Skip(request.pageSize * (request.page - 1)).Take(request.pageSize).AsEnumerable();
             if (accsOnThePage == null)
             {
                 return BadRequest("page number is too big");
@@ -118,10 +92,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 content.Add(info);
             }
             Pagination pagination = new Pagination();
-            pagination.TotalElements = relevant_data.Count();
-            pagination.TotalPages = (relevant_data.Count() + request.pageSize - 1) / request.pageSize;
-            pagination.PageSize = content.Count;
-            pagination.Page = request.page;
+            pagination.total_elements = relevant_data_list.Count();
+            pagination.total_pages = (relevant_data_list.Count() + request.pageSize - 1) / request.pageSize;
+            pagination.pageSize = content.Count;
+            pagination.page_number = request.page;
             AccountComplexResponse response = new AccountComplexResponse();
             response.content = content;
             response.pagination = pagination;
@@ -215,7 +189,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             return Ok();
         }
 
-        [HttpGet("/admin/accounts/{id:int}")]
+        [HttpGet("/admin/accounts/{id}")]
         [Authorize(Roles =Roles.Admin)]
         public async Task<ActionResult> GetAccountPublicData(int id)
         {
@@ -313,18 +287,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
         [HttpGet("/admin/accounts/select")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetAccListByRole([FromBody] string? role)
+        public async Task<ActionResult> GetAccListByRole([FromQuery] string? role)
         {
-            if (role == null)
-            {
-                return BadRequest("role must be specified");
-            }
-            if (role != "Learner" && role != "Tracker") { return BadRequest("bad role"); }
+            if (role != null && role != "Learner" && role != "Tracker") { return BadRequest("bad role"); }
 
             
             char role_c = role == "Learner" ? '0' : '1';
             var relevant_data = from m in _context.Learner
-                                where m.IsTracker == role_c
+                                where role == null || m.IsTracker == role_c
                                 select m;
             
             List<AccountShortenInfo> content = new List<AccountShortenInfo>();
