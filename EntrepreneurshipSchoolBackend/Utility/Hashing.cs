@@ -2,9 +2,12 @@ using System.Security.Cryptography;
 
 namespace EntrepreneurshipSchoolBackend.Utility;
 
-public class Hashing
+/// <summary>
+/// This class contains methods that has password hashing functions.
+/// </summary>
+public static class Hashing
 {
-        /// <summary>
+    /// <summary>
     /// Hashes a password with salt and SHA512 algorithm.
     /// </summary>
     /// <param name="password">A string password to hash.</param>

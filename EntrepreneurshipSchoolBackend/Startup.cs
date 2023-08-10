@@ -67,7 +67,7 @@ public class Startup
                 .ForJob(jobKey)
                 .WithIdentity("CheckDeadlineJob-trigger")
                 .WithSimpleSchedule(x =>
-                    x.WithIntervalInSeconds(20).RepeatForever())
+                    x.WithIntervalInHours(1).RepeatForever())
             );
         });
 

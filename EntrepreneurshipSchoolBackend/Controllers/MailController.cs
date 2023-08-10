@@ -1,12 +1,11 @@
 using System.Collections.Concurrent;
 using EntrepreneurshipSchoolBackend.DTOs;
 using EntrepreneurshipSchoolBackend.Models;
+using EntrepreneurshipSchoolBackend.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using MailKit.Net.Smtp;
 using MimeKit;
-using Task = System.Threading.Tasks.Task;
 
 namespace EntrepreneurshipSchoolBackend.Controllers;
 
@@ -65,22 +64,7 @@ public class MailController : ControllerBase
             .ForEachAsync(x =>
                 emails.TryAdd(x.EmailLogin, new MailboxAddress($"{x.Surname} {x.Name} {x.Lastname}", x.EmailLogin)));
 
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(Properties.EmailName, Properties.EmailAddress));
-        message.To.AddRange(emails.Values);
-        message.Subject = mailInfo.title;
-        
-        message.Body = new TextPart("plain") { Text = mailInfo.content };
-        
-        using (var client = new SmtpClient())
-        {
-            await client.ConnectAsync(Properties.SmtpAddress, Properties.SmtpPort, Properties.SmtpUseSsl);
-        
-            await client.AuthenticateAsync(Properties.EmailAddress, Properties.EmailPassword);
-        
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
-        }
+        await Mail.SendMessages(emails.Values, mailInfo.title, mailInfo.content);
 
         return new OkResult();
     }
