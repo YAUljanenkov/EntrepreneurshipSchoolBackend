@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using EntrepreneurshipSchoolBackend.DTOs;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -344,21 +345,21 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 case "name":
                     if (sortOrder == "asc")
                     {
-                        result.OrderBy(dto => dto.task.Title);
+                        result = result.OrderBy(dto => dto.task.Title).ToList();
                     }
                     if (sortOrder == "desc")
                     {
-                        result.OrderByDescending(dto => dto.task.Title);
+                        result = result.OrderByDescending(dto => dto.task.Title).ToList();
                     }
                     break;
                 case "notEvaluated":
                     if (sortOrder == "asc")
                     {
-                        result.OrderBy(dto => dto.notEvaluatedNumber);
+                        result = result.OrderBy(dto => dto.notEvaluatedNumber).ToList();
                     }
                     if (sortOrder == "desc")
                     {
-                        result.OrderByDescending(dto => dto.notEvaluatedNumber);
+                        result = result.OrderByDescending(dto => dto.notEvaluatedNumber).ToList();
                     }
                     break;
             }
@@ -461,7 +462,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             int trackerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
 
-            Solution? thisSolution = _context.Solutions.Find(solutionId);
+            Solution? thisSolution = await _context.Solutions.FindAsync(solutionId);
 
             if (thisSolution == null)
             {
@@ -478,27 +479,33 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             dto.learner = learner;
 
             // Ищем команду.
-            Group group = _context.Relates.FirstOrDefault(relate => relate.LearnerId == learner.Id).Group;
+            Group group = (await _context.Relates.FirstAsync(relate => relate.LearnerId == learner.Id)).Group;
 
-            ShortenTeamInfo team = new ShortenTeamInfo();
-            team.id = group.Id;
-            team.number = group.Number;
+            ShortenTeamInfo team = new ShortenTeamInfo
+            {
+                id = group.Id,
+                number = group.Number
+            };
             dto.team = team;
 
             // Заполняем данные о задании.
 
-            TaskSolutionDTO task = new TaskSolutionDTO();
-            task.Id = thisSolution.TaskId;
-            task.title = thisSolution.Task.Title;
-            task.deadline = thisSolution.Task.Deadline;
-            task.description = thisSolution.Task.Comment;
-            task.criteria = thisSolution.Task.Criteria;
-            task.isTeamwork = thisSolution.Task.IsGroup;
-            task.taskType = thisSolution.Task.Type.Name;
+            TaskSolutionDTO task = new TaskSolutionDTO
+            {
+                Id = thisSolution.TaskId,
+                title = thisSolution.Task.Title,
+                deadline = thisSolution.Task.Deadline,
+                description = thisSolution.Task.Comment,
+                criteria = thisSolution.Task.Criteria,
+                isTeamwork = thisSolution.Task.IsGroup,
+                taskType = thisSolution.Task.Type.Name
+            };
 
-            LessonOutputDTO lesson = new LessonOutputDTO();
-            lesson.Id = thisSolution.Task.Lesson.Id;
-            lesson.Number = thisSolution.Task.Lesson.Number;
+            LessonOutputDTO lesson = new LessonOutputDTO
+            {
+                Id = thisSolution.Task.Lesson.Id,
+                Number = thisSolution.Task.Lesson.Number
+            };
             task.lesson = lesson;
 
             task.link = thisSolution.Task.Link;
