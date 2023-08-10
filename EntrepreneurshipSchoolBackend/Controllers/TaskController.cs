@@ -244,10 +244,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             _context.Tasks.Add(newTask);
             await _context.SaveChangesAsync();
 
+            if (!Properties.NeedSendEmail) return Ok(newTask);
             var emails = (await _context.Learner.Where(x => x.IsTracker == '0').ToListAsync()).Select(x =>
                 new MailboxAddress($"{x.Surname} {x.Name} {x.Lastname}", x.EmailLogin));
             await Mail.SendMessages(emails, Properties.NewTaskTitle(data.title),
                 Properties.NewTaskMessage(data.title, data.deadline.Value));
+
             return Ok(newTask);
         }
 

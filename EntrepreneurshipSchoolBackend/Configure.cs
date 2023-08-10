@@ -38,18 +38,18 @@ public struct Properties
     /// <summary>
     /// An email to send messages from.
     /// </summary>
-    public const string EmailAddress = "yaaulyanenkov@edu.hse.ru";
+    public const string EmailAddress = "ent.school@yandex.ru";
 
     /// <summary>
     /// A password for email to send messages from. If you use yandex mail, it should be a specially generated
     /// password for applications. 
     /// </summary>
-    public const string EmailPassword = "nietbzbpjgpyjxbw";
+    public const string EmailPassword = "sgwfgbmsdkgmvhwt";
     
     /// <summary>
     /// If you need a mailing list about deadlines, this constant should be set to true.
     /// </summary>
-    public const bool NeedSendEmail = true;
+    public const bool NeedSendEmail = false;
     
     /// <summary>
     /// Returns title for a notification message about new task.
