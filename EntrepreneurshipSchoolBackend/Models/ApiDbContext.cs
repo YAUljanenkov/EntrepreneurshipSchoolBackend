@@ -7,7 +7,6 @@ public class ApiDbContext : DbContext
 {
     public ApiDbContext(DbContextOptions<ApiDbContext> options): base(options)
     {
-        this.Database?.EnsureCreated();
     }
     public DbSet<Admin> Admins { get; set; }
     public DbSet<AssessmentsType> AssessmentsTypes { get; set; }

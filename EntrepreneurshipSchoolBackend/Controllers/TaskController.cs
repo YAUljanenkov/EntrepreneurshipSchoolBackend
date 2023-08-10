@@ -3,9 +3,14 @@ using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
+using EntrepreneurshipSchoolBackend.Utility;
+using MailKit.Net.Smtp;
+using Microsoft.EntityFrameworkCore;
+using MimeKit;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
+    [ApiController]
     public class TaskController : ControllerBase
     {
         private readonly ApiDbContext _context;
@@ -27,45 +32,46 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <returns></returns>
         [HttpGet("/admin/tasks")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetTasks(int? lesson_id, string taskType, string sortProperty, string sortOrder, int page, int pageSize)
+        public async Task<ActionResult> GetTasks(int? lesson_id, string taskType, string sortProperty, string sortOrder,
+            int page, int pageSize)
         {
-            if(taskType != "HW" && taskType != "Competition" && taskType != "Exam" && taskType != "Test")
+            if (taskType != "HW" && taskType != "Competition" && taskType != "Exam" && taskType != "Test")
             {
                 return BadRequest("Incorrect parameters");
             }
 
-            if(sortOrder != "asc" && sortOrder != "desc")
+            if (sortOrder != "asc" && sortOrder != "desc")
             {
                 return BadRequest("Incorrect parameters");
             }
 
             IEnumerable<Models.Task> tasks;
 
-            if(lesson_id != null) 
+            if (lesson_id != null)
             {
                 tasks = from task in _context.Tasks
-                        where task.Lesson == _context.Lessons.Find(lesson_id)
-                        select task;
+                    where task.Lesson == _context.Lessons.Find(lesson_id)
+                    select task;
 
-                if(taskType != null)
+                if (taskType != null)
                 {
                     tasks = from task in tasks
-                            where task.Type == _context.TaskTypes.FirstOrDefault(type => type.Name == taskType)
-                            select task;
+                        where task.Type == _context.TaskTypes.FirstOrDefault(type => type.Name == taskType)
+                        select task;
                 }
-            } 
+            }
             else if (taskType != null)
             {
                 tasks = from task in _context.Tasks
-                        where task.Type == _context.TaskTypes.FirstOrDefault(type => type.Name == taskType)
-                        select task;
-            } 
+                    where task.Type == _context.TaskTypes.FirstOrDefault(type => type.Name == taskType)
+                    select task;
+            }
             else
             {
                 return NotFound();
             }
 
-            if(sortProperty != null)
+            if (sortProperty != null)
             {
                 switch (sortProperty)
                 {
@@ -78,6 +84,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                         {
                             tasks = tasks.OrderByDescending(task => task.Deadline).ToList();
                         }
+
                         break;
                     case "link":
                         if (sortOrder == "asc")
@@ -88,6 +95,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                         {
                             tasks = tasks.OrderByDescending(task => task.Link).ToList();
                         }
+
                         break;
                     case "title":
                         if (sortOrder == "asc")
@@ -98,6 +106,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                         {
                             tasks = tasks.OrderByDescending(task => task.Title).ToList();
                         }
+
                         break;
                     case "taskType":
                         if (sortOrder == "asc")
@@ -108,6 +117,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                         {
                             tasks = tasks.OrderByDescending(task => task.Type.Id).ToList();
                         }
+
                         break;
                     case "lesson":
                         if (sortOrder == "asc")
@@ -118,17 +128,18 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                         {
                             tasks = tasks.OrderByDescending(task => task.Lesson.Number).ToList();
                         }
+
                         break;
                     default:
-                        {
-                            return NotFound();
-                        }
+                    {
+                        return NotFound();
+                    }
                 }
             }
 
             var tasksOnThePage = tasks.Skip(pageSize * (page - 1)).Take(pageSize);
 
-            if(!tasksOnThePage.Any())
+            if (!tasksOnThePage.Any())
             {
                 return NotFound();
             }
@@ -166,7 +177,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             pages.Page = page;
             pages.PageSize = pageSize;
             pages.TotalElements = tasks.Count();
-            pages.TotalPages = tasks.Count()/pageSize;
+            pages.TotalPages = tasks.Count() / pageSize;
 
             var response = new TaskOutputPageDTO();
             response.pagination = pages;
@@ -194,24 +205,26 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <returns></returns>
         [HttpPost("/admin/tasks")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> CreateTask([FromBody] TaskInputDTO data)
+        public async Task<ActionResult> CreateTask(TaskInputDTO data)
         {
-            if (data.deadline == null || data.id == null || data.title == null || data.taskType == null) {
+            if (data.deadline == null || data.title == null || data.taskType == null)
+            {
                 return BadRequest("Some of the crucial fields were not specified!");
             }
 
-            Models.Task newTask = new Models.Task();
-
-            newTask.Title = data.title;
-            newTask.Deadline = data.deadline.Value;
-            newTask.IsGroup = data.isTeamWork;
-            newTask.Comment = data.description;
-            newTask.Criteria = data.criteria;
-            newTask.Link = data.link;
-
-            if(data.lessonId != null)
+            Models.Task newTask = new Models.Task
             {
-                Lesson? connectedLesson = _context.Lessons.Find(data.lessonId);
+                Title = data.title,
+                Deadline = data.deadline.Value,
+                IsGroup = data.isTeamWork,
+                Comment = data.description,
+                Criteria = data.criteria,
+                Link = data.link
+            };
+
+            if (data.lessonId != null)
+            {
+                Lesson? connectedLesson = await _context.Lessons.FindAsync(data.lessonId);
                 if (connectedLesson == null)
                 {
                     return NotFound();
@@ -220,8 +233,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 newTask.Lesson = connectedLesson;
             }
 
-            TaskType? connectedType = _context.TaskTypes.FirstOrDefault(type => type.Name == data.taskType);
-            if(connectedType == null) 
+            TaskType? connectedType = await _context.TaskTypes.FirstOrDefaultAsync(type => type.Name == data.taskType);
+            if (connectedType == null)
             {
                 return NotFound();
             }
@@ -230,6 +243,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             _context.Tasks.Add(newTask);
             await _context.SaveChangesAsync();
+
+            if (!Properties.NeedSendEmail) return Ok(newTask);
+            var emails = (await _context.Learner.Where(x => x.IsTracker == '0').ToListAsync()).Select(x =>
+                new MailboxAddress($"{x.Surname} {x.Name} {x.Lastname}", x.EmailLogin));
+            await Mail.SendMessages(emails, Properties.NewTaskTitle(data.title),
+                Properties.NewTaskMessage(data.title, data.deadline.Value));
 
             return Ok(newTask);
         }
@@ -243,7 +262,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> UpdateTask([FromBody] TaskInputDTO data)
         {
-            if(data.id == null)
+            if (data.id == null)
             {
                 return BadRequest("Some of the crucial properties were not specified!");
             }
@@ -309,7 +328,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             Models.Task? deletedTask = await _context.Tasks.FindAsync(id);
 
-            if(deletedTask == null)
+            if (deletedTask == null)
             {
                 return NotFound();
             }
@@ -335,12 +354,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             var tasks = from task in _context.Tasks
-                        where task.Type.Name == taskType
-                        select task;
+                where task.Type.Name == taskType
+                select task;
 
             List<TaskOutputDTO> result = new List<TaskOutputDTO>();
 
-            foreach(var task in tasks)
+            foreach (var task in tasks)
             {
                 TaskOutputDTO dto = new TaskOutputDTO();
 
@@ -364,14 +383,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             Models.Task? thisTask = await _context.Tasks.FindAsync(id);
 
-            if(thisTask == null)
+            if (thisTask == null)
             {
                 return NotFound();
             }
 
             TaskDeadlineDTO result = new TaskDeadlineDTO();
 
-            if (thisTask.Lesson != null) 
+            if (thisTask.Lesson != null)
             {
                 LessonOutputDTO lesson = new LessonOutputDTO();
 
@@ -379,7 +398,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 lesson.Number = thisTask.Lesson.Number;
 
                 result.lesson = lesson;
-            } 
+            }
             else
             {
                 result.lesson = null;

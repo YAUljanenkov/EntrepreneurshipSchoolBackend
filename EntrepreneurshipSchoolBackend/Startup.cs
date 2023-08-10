@@ -1,9 +1,12 @@
 using System.Reflection;
 using EntrepreneurshipSchoolBackend.Models;
+using EntrepreneurshipSchoolBackend.Utility;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using Quartz;
+using Quartz.AspNetCore;
 using Swashbuckle.AspNetCore.Swagger;
 using Task = System.Threading.Tasks.Task;
 
@@ -11,9 +14,10 @@ namespace EntrepreneurshipSchoolBackend;
 
 public class Startup
 {
-    // private String connectionString = "host=localhost;port=5432;database=database;username=admin;password=password";
-
-    // This method gets called by the runtime. Use this method to add services to the container.
+    /// <summary>
+    /// his method gets called by the runtime. Use this method to add services to the container.
+    /// </summary>
+    /// <param name="services"></param>
     public void ConfigureServices(IServiceCollection services)
     {
         IServiceProvider serviceProvider = services.BuildServiceProvider();
@@ -52,11 +56,36 @@ public class Startup
             var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
             c.IncludeXmlComments(xmlPath);
         });
+        
+        services.AddQuartz(q =>
+        {
+            // Just use the name of your job that you created in the Jobs folder.
+            var jobKey = new JobKey("CheckDeadlineJob");
+            q.AddJob<CheckDeadlineJob>(opts => opts.WithIdentity(jobKey));
+    
+            q.AddTrigger(opts => opts
+                .ForJob(jobKey)
+                .WithIdentity("CheckDeadlineJob-trigger")
+                .WithSimpleSchedule(x =>
+                    x.WithIntervalInHours(1).RepeatForever())
+            );
+        });
+
+        // ASP.NET Core hosting
+        services.AddQuartzServer(options =>
+        {
+            // when shutting down we want jobs to complete gracefully
+            options.WaitForJobsToComplete = true;
+        });
 
         StartupRecords();
     }
 
-    // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+    /// <summary>
+    /// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+    /// </summary>
+    /// <param name="app"></param>
+    /// <param name="env"></param>
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
         if (env.IsDevelopment())
@@ -84,17 +113,27 @@ public class Startup
     public void StartupRecords()
     {
         var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+
         var opt = new DbContextOptionsBuilder<ApiDbContext>()
             .UseNpgsql(connectionString)
             .Options;
 
         var cont = new ApiDbContext(opt);
         
-        if (!cont.Admins.Any(x => x.EmailLogin == "admin"))
+        // Wait till container with DataBase is up and running.
+        while (!cont.Database?.CanConnect() ?? true)
         {
-            // Не забыть поменять перед релизом))
+            Console.WriteLine("Waiting for Database to go online...");
+            Thread.Sleep(3000);
+        }
+        
+        // Check if all tables are created.
+        cont.Database.EnsureCreated();
+
+        if (!cont.Admins.Any(x => x.EmailLogin == Properties.AdminLogin))
+        {
             cont.Admins.Add(new Admin
-                { EmailLogin = "admin", Password = Controllers.AuthController.HashPassword("password") });
+                { EmailLogin = Properties.AdminLogin, Password = Hashing.HashPassword(Properties.AdminPassword) });
         }
 
         if (cont.TransactionTypes.Count() != 8)
