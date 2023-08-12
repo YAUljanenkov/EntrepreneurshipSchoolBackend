@@ -92,10 +92,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 content.Add(info);
             }
             Pagination pagination = new Pagination();
-            pagination.TotalElements = relevant_data_list.Count();
-            pagination.TotalPages = (relevant_data_list.Count() + request.pageSize - 1) / request.pageSize;
-            pagination.PageSize = content.Count;
-            pagination.Page = request.page;
+            pagination.total_elements = relevant_data_list.Count();
+            pagination.total_pages = (relevant_data_list.Count() + request.pageSize - 1) / request.pageSize;
+            pagination.pageSize = content.Count;
+            pagination.page_number = request.page;
             AccountComplexResponse response = new AccountComplexResponse();
             response.content = content;
             response.pagination = pagination;
@@ -113,19 +113,16 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 same_properties.Add("email");
             }
-
             intersect = _context.Learner.FirstOrDefault(ob => ob.Phone == user.phone);
             if (intersect != null)
             {
                 same_properties.Add("phone");
             }
-
             if (same_properties.Count > 0)
             {
                 return StatusCode(409, same_properties);
             }
-
-            if (user.role != Roles.Tracker && user.role != Roles.Learner)
+            if (user.role !=  Roles.Tracker && user.role != Roles.Learner)
             {
                 return BadRequest("bad role");
             }
@@ -137,7 +134,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.Messenger = user.messenger;
             newLearner.EmailLogin = user.email;
             newLearner.Phone = user.phone;
-            newLearner.Password = Hashing.HashPassword(user.password);
+            newLearner.Password = user.password;
             newLearner.IsTracker = user.role == Roles.Learner ? '0' : '1';
             if (user.gender != null)
             {
@@ -148,7 +145,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.GradeBonus = 0;
 
             _context.Learner.Add(newLearner);
-            await _context.SaveChangesAsync();
+            _context.SaveChanges();
 
             return Ok();
         }
@@ -165,6 +162,21 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             if (acc == null)
             {
                 return NotFound();
+            }
+            List<string> same_properties = new List<string>();
+            var intersect = _context.Learner.Where(ob => ob.EmailLogin == user.email);
+            if (intersect.Count() > 1 || intersect.Count() == 1 & intersect.First().Id != user.id)
+            {
+                same_properties.Add("email");
+            }
+            intersect = _context.Learner.Where(ob => ob.Phone == user.phone);
+            if (intersect.Count() > 1 || intersect.Count() == 1 & intersect.First().Id != user.id)
+            {
+                same_properties.Add("phone");
+            }
+            if (same_properties.Count > 0)
+            {
+                return StatusCode(409, same_properties);
             }
             if (user.role != Roles.Tracker && user.role != Roles.Learner)
             {
@@ -200,7 +212,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             info.role = acc.IsTracker == '0' ? "Learner" : "Tracker";
             info.balance = acc.Balance;
             info.id = acc.Id;
-            info.fullName = acc.Surname + " " + acc.Name;
+            info.name = acc.Name;
+            info.surname = acc.Surname;
+            info.middleName = acc.Lastname;
             var TeamNumbers = from r in _context.Relates
                               where r.LearnerId == acc.Id
                               select r.Group.Number;
@@ -233,7 +247,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             info.role = acc.IsTracker == '0' ? "Learner" : "Tracker";
             info.balance = acc.Balance;
             info.id = acc.Id;
-            info.fullName = acc.Surname + " " + acc.Name;
+            info.name = acc.Name;
+            info.surname = acc.Surname;
+            info.middleName = acc.Lastname;
             var TeamNumbers = from r in _context.Relates
                               where r.LearnerId == acc.Id
                               select r.Group.Number;
