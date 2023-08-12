@@ -13,7 +13,9 @@
     public class ExtendedAccountInfo
     {
         public int id { get; set; }
-        public string fullName { get; set; }
+        public string name { get; set; }
+        public string surname { get; set; }
+        public string? middleName { get; set; }
         public string email { get; set; }
         public string phone { get; set; }
         public string? messenger { get; set; }
