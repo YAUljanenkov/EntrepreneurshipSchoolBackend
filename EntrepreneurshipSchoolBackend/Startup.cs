@@ -30,6 +30,7 @@ public class Startup
             options.Cookie.Name = "auth_cookie";
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.Cookie.HttpOnly = true;
+            options.ExpireTimeSpan = TimeSpan.FromDays(3);
             options.Cookie.SecurePolicy = env?.IsDevelopment() ?? false 
                 ? CookieSecurePolicy.None : CookieSecurePolicy.Always;
             options.Events = new CookieAuthenticationEvents

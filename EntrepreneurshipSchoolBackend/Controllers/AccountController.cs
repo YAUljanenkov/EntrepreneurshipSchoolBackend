@@ -92,10 +92,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 content.Add(info);
             }
             Pagination pagination = new Pagination();
-            pagination.total_elements = relevant_data_list.Count();
-            pagination.total_pages = (relevant_data_list.Count() + request.pageSize - 1) / request.pageSize;
-            pagination.pageSize = content.Count;
-            pagination.page_number = request.page;
+            pagination.TotalElements = relevant_data_list.Count;
+            pagination.TotalPages = (relevant_data_list.Count + request.pageSize - 1) / request.pageSize;
+            pagination.PageSize = content.Count;
+            pagination.Page = request.page;
             AccountComplexResponse response = new AccountComplexResponse();
             response.content = content;
             response.pagination = pagination;
@@ -134,7 +134,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.Messenger = user.messenger;
             newLearner.EmailLogin = user.email;
             newLearner.Phone = user.phone;
-            newLearner.Password = user.password;
+            newLearner.Password = Hashing.HashPassword(user.password);
             newLearner.IsTracker = user.role == Roles.Learner ? '0' : '1';
             if (user.gender != null)
             {
@@ -145,7 +145,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newLearner.GradeBonus = 0;
 
             _context.Learner.Add(newLearner);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return Ok();
         }
