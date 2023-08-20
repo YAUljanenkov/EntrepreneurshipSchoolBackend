@@ -256,9 +256,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 return NotFound("No admin assessment found by that id.");
             }
-
-            present.LearnerId = data.learnerId;
-            present.TaskId = data.taskId;
+            
             present.Grade = data.assessment;
             present.Date = DateTime.Now.ToUniversalTime();
             present.Comment = data.comment;
@@ -773,7 +771,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> CreateTrackerAssessment([FromBody] AssessmentInputDTO data)
         {
             // Сначала проверяем достаточность имеющихся данных.
-            if (!ModelState.IsValid)
+            if (!ModelState.IsValid || data.learnerId == null || data.taskId == null)
             {
                 return BadRequest("Some of the crucial properties have not been specified");
             }
@@ -790,9 +788,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             // Конструируем новый объект оценки по имеющимся данным.
             Assessments newAssessment = new Assessments
             {
-                LearnerId = data.learnerId,
+                LearnerId = data.learnerId ?? 0,
                 Learner = await _context.Learner.FindAsync(data.learnerId),
-                TaskId = data.taskId,
+                TaskId = data.taskId ?? 0,
                 Task = await _context.Tasks.FindAsync(data.taskId),
                 Grade = data.assessment,
                 Date = DateTime.Now.ToUniversalTime(),
