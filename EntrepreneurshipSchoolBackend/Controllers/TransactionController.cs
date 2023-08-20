@@ -39,8 +39,8 @@ public class TransactionController : ControllerBase
     /// <returns>A list of transactions with pagination info.</returns>
     [HttpGet("/admin/transactions")]
     [Authorize(Roles = Roles.Admin)]
-    public async Task<IActionResult> GetAdminTransactions(int? learnerId, string? transactionType, string? dateFrom,
-        string? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
+    public async Task<IActionResult> GetAdminTransactions(int? learnerId, string? transactionType, DateTime? dateFrom,
+        DateTime? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
     {
         if (learnerId != null && !await _context.Learner.AnyAsync(x => x.Id == learnerId))
         {
@@ -58,23 +58,8 @@ public class TransactionController : ControllerBase
         {
             type = await _context.TransactionTypes.FirstAsync(x => x.Name == transactionType);
         }
-
-        DateTime dateFromValue = DateTime.MinValue, dateToValue = DateTime.MinValue;
-        var ruRU = new CultureInfo("ru-RU");
-
-        if (dateFrom != null &&
-            !DateTime.TryParseExact(dateFrom, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateFromValue))
-        {
-            return new BadRequestObjectResult("Incorrect parameters.");
-        }
-
-        dateFromValue = dateFromValue.ToUniversalTime();
-        if (dateTo != null && !DateTime.TryParseExact(dateTo, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateToValue))
-        {
-            return new BadRequestObjectResult("Incorrect parameters.");
-        }
-
-        dateToValue = dateToValue.ToUniversalTime();
+        var dateFromValue = dateFrom?.ToUniversalTime();
+        var dateToValue = dateTo?.ToUniversalTime();
         if (sortProperty != null && !typeof(Transaction).GetProperties().Select(x => x.Name.ToLower())
                 .Contains(sortProperty.ToLower()) && sortProperty.ToLower() != "description" &&
             sortProperty.ToLower() != "dateTime")
@@ -209,8 +194,8 @@ public class TransactionController : ControllerBase
     /// <returns>A list of transactions with pagination info.</returns>
     [HttpGet("/learner/transactions")]
     [Authorize(Roles = Roles.Learner)]
-    public async Task<IActionResult> GetLearnerTransactions(string? transactionType, string? dateFrom,
-        string? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
+    public async Task<IActionResult> GetLearnerTransactions(string? transactionType, DateTime? dateFrom,
+        DateTime? dateTo, string? sortProperty, string? sortOrder, int? page, int? pageSize)
     {
         if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
         {

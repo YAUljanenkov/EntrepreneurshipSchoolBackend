@@ -8,7 +8,7 @@ namespace EntrepreneurshipSchoolBackend.DTOs
         public int number { set; get; }
         public string title { set; get; }
         public string description { set; get; }
-        public string date { set; get; }
+        public DateTime date { set; get; }
         public string? presLink { set; get; }
         public string? videoLink { set; get; }
         public int? homeworkId { set; get; }

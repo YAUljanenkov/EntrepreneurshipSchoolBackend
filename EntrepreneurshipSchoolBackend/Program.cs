@@ -1,8 +1,4 @@
-using EntrepreneurshipSchoolBackend.Controllers;
-using EntrepreneurshipSchoolBackend.Models;
-using EntrepreneurshipSchoolBackend.Utility;
 using Microsoft.AspNetCore;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntrepreneurshipSchoolBackend;
 public class Program

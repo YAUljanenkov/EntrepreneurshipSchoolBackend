@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Security.Claims;
 using EntrepreneurshipSchoolBackend.DTOs;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.EntityFrameworkCore;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -79,7 +80,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> CreateTeam([FromBody] TeamRequest team)
         {
             List<string> same_properties = new List<string>();
-            var intersect = _context.Groups.FirstOrDefault(ob => ob.Theme == team.projectTheme);
+            var intersect = await _context.Groups.FirstOrDefaultAsync(ob => ob.Theme == team.projectTheme);
             if (intersect != null)
             {
                 same_properties.Add("projectTheme");
@@ -91,7 +92,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
             foreach (int id in team.members)
             {
-                var user = _context.Learner.FirstOrDefault(ob => ob.Id == id);
+                var user = await _context.Learner.FirstOrDefaultAsync(ob => ob.Id == id);
                 if (user == null)
                 {
                     return NotFound("user does not exists");
@@ -106,10 +107,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             foreach (int id in team.members)
             {
-                var user = _context.Learner.FirstOrDefault(ob => ob.Id == id);
-                Relate relate = new Relate();
-                relate.Learner = user;
-                relate.Group = new_group;
+                var user = await _context.Learner.FirstOrDefaultAsync(ob => ob.Id == id);
+                Relate relate = new Relate
+                {
+                    Learner = user,
+                    Group = new_group
+                };
                 await _context.Relates.AddAsync(relate);
                 await _context.SaveChangesAsync();
             }
@@ -125,14 +128,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 return BadRequest("Id is not specified");
             }
-            Models.Group? team_old = _context.Groups.Find(team.id);
+            Models.Group? team_old = await _context.Groups.FindAsync(team.id);
             if (team_old == null)
             {
                 return NotFound();
             }
             foreach (int id in team.members)
             {
-                var user = _context.Learner.FirstOrDefault(ob => ob.Id == id);
+                var user = await _context.Learner.FirstOrDefaultAsync(ob => ob.Id == id);
                 if (user == null)
                 {
                     return NotFound("user does not exists");

@@ -5,6 +5,7 @@ using System.Security.Claims;
 using EntrepreneurshipSchoolBackend.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -25,14 +26,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [HttpGet("/files/{fileId}")]
         public async Task<ActionResult> DownloadFile(int fileId)
         {
-            UserFile thisFile = _context.UserFiles.Find(fileId);
+            UserFile thisFile = await _context.UserFiles.FindAsync(fileId);
 
             if (thisFile == null)
             {
                 return NotFound("No solutions found with that id");
             }
 
-            var fileBytes = System.IO.File.ReadAllBytes(thisFile.Path);
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(thisFile.Path);
 
             return Ok(File(fileBytes, "application/zip"));
         }
@@ -49,7 +50,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> UploadFile(IFormFile file, int taskId)
         {
             // Проверяем, есть ли такое задание в БД.
-            Models.Task thisTask = _context.Tasks.Find(taskId);
+            Models.Task thisTask = await _context.Tasks.FindAsync(taskId);
 
             if (thisTask == null)
             {
@@ -57,21 +58,22 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             int learnerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
-            Learner thisLearner = _context.Learner.Find(learnerId);
+            Learner thisLearner = await _context.Learner.FindAsync(learnerId);
 
             // Создаём новый объект solution.
             // При загрузке файла на сервер автоматически будет создаваться solution на задание с идентификатором taskId.
-            Solution newSolution = new Solution();
-
-            // Заполняем очевидные поля решения.
-            newSolution.TaskId = taskId;
-            newSolution.Task = _context.Tasks.Find(taskId);
-            newSolution.CompleteDate = DateTime.Now;
+            Solution newSolution = new Solution
+            {
+                // Заполняем очевидные поля решения.
+                TaskId = taskId,
+                Task = await _context.Tasks.FindAsync(taskId),
+                CompleteDate = DateTime.Now.ToUniversalTime()
+            };
 
             // В зависимости от командности задания, заполняем либо learner, либо group решения.
             if (thisTask.IsGroup == true)
             {
-                Group thisGroup = _context.Relates.FirstOrDefault(relate => relate.LearnerId == learnerId).Group;
+                Group thisGroup = (await _context.Relates.FirstOrDefaultAsync(relate => relate.LearnerId == learnerId)).Group;
                 newSolution.Group = thisGroup;
                 newSolution.GroupId = thisGroup.Id;
             }
@@ -82,10 +84,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             // Указываем дату выполнения (сейчас) и путь к файлу задания.
-            newSolution.CompleteDate = DateTime.Now;
+            newSolution.CompleteDate = DateTime.Now.ToUniversalTime();
 
-            UserFile newFile = new UserFile();
-            newFile.Path = "../files/" + file.FileName;
+            UserFile newFile = new UserFile
+            {
+                Path = "../files/" + file.FileName
+            };
 
             // Избегаем копий в хранилище файлов.
             var possibleNamesakes = from copy in _context.Solutions
@@ -98,26 +102,26 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             // Сохраняем файл.
-            using (var stream = new FileStream("../files/" + file.FileName, FileMode.Create))
+            await using (var stream = new FileStream("../files/" + file.FileName, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
             _context.UserFiles.Add(newFile);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             newSolution.file = newFile;
             newSolution.fileId = newFile.Id;
 
             // Загружаем файл (зип архив) решения задания.
-            if (file == null || file.Length <= 0 || file.ContentType != "application/zip")
+            if (file is not { Length: > 0, ContentType: "application/zip" })
             {
                 return BadRequest("The uploaded files was not .zip");
             }
 
             // Вносим изменения в БД.
             _context.Solutions.Add(newSolution);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return Ok();
         }

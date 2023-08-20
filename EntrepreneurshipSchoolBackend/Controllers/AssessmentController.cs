@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
 
 namespace EntrepreneurshipSchoolBackend.Controllers
 {
@@ -18,27 +19,32 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
         [HttpGet("/admin/assessments")]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult> GetAssessments(int? learnerId, int? taskId, string? assessmentGrade, DateTime? dateFrom,
-                                                    DateTime? dateTo, string SortOrder, string sortProperty, int page, int pageSize)
+        public async Task<ActionResult> GetAssessments(int? learnerId, int? taskId, string? assessmentGrade,
+            DateTime? dateFrom,
+            DateTime? dateTo, string SortOrder, string sortProperty, int page, int pageSize)
         {
             // LearnerId может оказаться TaskId.
             var collection = from assessment in _context.Assessments
-                             select assessment;
+                select assessment;
+
+            var dateFromValue = dateFrom?.ToUniversalTime();
+            var dateToValue = dateTo?.ToUniversalTime();
 
             if (learnerId != null)
             {
                 collection = from assessment in collection
-                             where assessment.Id == learnerId
-                             select assessment;
+                    where assessment.Id == learnerId
+                    select assessment;
             }
-            else if (taskId != null) {
+            else if (taskId != null)
+            {
                 collection = from assessment in _context.Assessments
-                             where assessment.Id == taskId
-                             select assessment;
+                    where assessment.Id == taskId
+                    select assessment;
             }
             else if (assessmentGrade != null)
             {
-                AssessmentsType? type = _context.AssessmentsTypes.Find(assessmentGrade);
+                AssessmentsType? type = await _context.AssessmentsTypes.FindAsync(assessmentGrade);
 
                 if (type == null)
                 {
@@ -46,33 +52,40 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
 
                 collection = from assessment in collection
-                             where _context.AssessmentsTypes.Find(assessment.AssessmentsType) == type
-                             select assessment;
+                    where _context.AssessmentsTypes.Find(assessment.AssessmentsType) == type
+                    select assessment;
             }
-            else if (dateFrom != null && dateTo != null)
+            else if (dateFromValue != null && dateToValue != null)
             {
                 collection = from assessment in collection
-                             where assessment.Date < dateTo && assessment.Date > dateFrom
-                             select assessment;
+                    where assessment.Date < dateToValue && assessment.Date > dateFromValue
+                    select assessment;
             }
 
             List<AssessmentDTO> content = new List<AssessmentDTO>();
             foreach (var item in collection)
             {
-                AssessmentDTO newDto = new AssessmentDTO();
+                var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                DateTime dateTimeConverted = TimeZoneInfo.ConvertTime((DateTime)item.Date, tz);
+                AssessmentDTO newDto = new AssessmentDTO
+                {
+                    Id = item.Id,
+                    issueDate = dateTimeConverted,
+                    assessmentType = await _context.AssessmentsTypes.FindAsync(item.AssessmentsType)
+                };
 
-                newDto.Id = item.Id;
-                newDto.issueDate = item.Date;
-                newDto.assessmentType = _context.AssessmentsTypes.Find(item.AssessmentsType);
-
-                TaskOutputDTO output = new TaskOutputDTO();
-                output.Id = item.TaskId;
-                output.Title = item.Task.Title;
+                TaskOutputDTO output = new TaskOutputDTO
+                {
+                    Id = item.TaskId,
+                    Title = item.Task.Title
+                };
                 newDto.task = output;
 
-                LearnerShortDTO learner = new LearnerShortDTO();
-                learner.Id = item.LearnerId;
-                learner.Name = item.Learner.Lastname + item.Learner.Name;
+                LearnerShortDTO learner = new LearnerShortDTO
+                {
+                    Id = item.LearnerId,
+                    Name = item.Learner.Lastname + item.Learner.Name
+                };
                 newDto.learner = learner;
 
                 newDto.assessment = item.Grade;
@@ -89,6 +102,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     {
                         content = content.OrderByDescending(content => content.learner.Name).ToList();
                     }
+
                     break;
                 case "Task":
                     if (SortOrder == "asc")
@@ -99,6 +113,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     {
                         content = content.OrderByDescending(content => _context.Tasks.Find(content.task.Id)).ToList();
                     }
+
                     break;
                 case "Date":
                     if (SortOrder == "asc")
@@ -109,6 +124,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     {
                         content = content.OrderByDescending(content => content.issueDate).ToList();
                     }
+
                     break;
                 case "Type":
                     if (SortOrder == "asc")
@@ -119,6 +135,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     {
                         content = content.OrderByDescending(content => content.assessmentType.Name).ToList();
                     }
+
                     break;
                 case "Grade":
                     if (SortOrder == "asc")
@@ -129,19 +146,23 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     {
                         content = content.OrderByDescending(content => content.assessment).ToList();
                     }
+
                     break;
             }
 
-            Pagination pagination = new Pagination();
+            Pagination pagination = new Pagination
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalElements = content.Count,
+                TotalPages = content.Count / pageSize
+            };
 
-            pagination.Page = page;
-            pagination.PageSize = pageSize;
-            pagination.TotalElements = content.Count();
-            pagination.TotalPages = content.Count() / pageSize;
-
-            AssessmentPageDTO result = new AssessmentPageDTO();
-            result.pagination = pagination;
-            result.content = content;
+            AssessmentPageDTO result = new AssessmentPageDTO
+            {
+                pagination = pagination,
+                content = content
+            };
 
             return Ok(result);
         }
@@ -163,7 +184,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             // Проверим, свободен ли id оценки.
-            Assessments? alreadyInUse = _context.Assessments.Find(data.id);
+            Assessments? alreadyInUse = await _context.Assessments.FindAsync(data.id);
 
             if (alreadyInUse != null)
             {
@@ -172,23 +193,28 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             // Проверим, получал ли ученик оценку за такое задание.
 
-            alreadyInUse = _context.Assessments.FirstOrDefault(assessment => (assessment.TaskId == data.taskId && assessment.LearnerId == data.learnerId && assessment.AssessmentsType == 2));
+            alreadyInUse = await _context.Assessments.FirstOrDefaultAsync(assessment =>
+                (assessment.TaskId == data.taskId && assessment.LearnerId == data.learnerId &&
+                 assessment.AssessmentsType == 2));
 
             if (alreadyInUse != null)
             {
-                return Conflict($"The learner (id = {data.learnerId})  already has an admin assessment for this task (id = {data.taskId}.");
+                return Conflict(
+                    $"The learner (id = {data.learnerId})  already has an admin assessment for this task (id = {data.taskId}.");
             }
 
             // Если всё в порядке, создадим новый объект Assessment.
-            Assessments newAssessment = new Assessments();
-
-            newAssessment.Id = data.id;
+            Assessments newAssessment = new Assessments
+            {
+                Id = data.id
+            };
 
             // Проверим, есть ли такой ученик и такое задание в базе данных.
-            Learner? learner = _context.Learner.Find(data.learnerId);
-            Models.Task? task = _context.Tasks.Find(data.taskId);
+            Learner? learner = await _context.Learner.FindAsync(data.learnerId);
+            Models.Task? task = await _context.Tasks.FindAsync(data.taskId);
 
-            if (task == null || learner == null) {
+            if (task == null || learner == null)
+            {
                 return NotFound();
             }
 
@@ -198,9 +224,10 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             newAssessment.Task = task;
 
             newAssessment.Grade = data.assessment;
-            newAssessment.Date = DateTime.Now;
+            newAssessment.Date = DateTime.Now.ToUniversalTime();
             newAssessment.Comment = data.comment;
-            newAssessment.AssessmentsType = _context.AssessmentsTypes.FirstOrDefault(type => type.Name == "FinalGrade").Id;
+            newAssessment.AssessmentsType =
+                (await _context.AssessmentsTypes.FirstOrDefaultAsync(type => type.Name == "FinalGrade")).Id;
 
             // Когда всё готово, запишем новую админскую оценку в БД.
 
@@ -222,17 +249,16 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             // Проверим, что соответствующая админская оценка есть в базе.
 
-            Assessments? present = _context.Assessments.FirstOrDefault(assessment => (assessment.Id == data.id && assessment.AssessmentsType == 2));
+            Assessments? present = await _context.Assessments.FirstOrDefaultAsync(assessment =>
+                (assessment.Id == data.id && assessment.AssessmentsType == 2));
 
             if (present == null)
             {
                 return NotFound("No admin assessment found by that id.");
             }
-
-            present.LearnerId = data.learnerId;
-            present.TaskId = data.taskId;
+            
             present.Grade = data.assessment;
-            present.Date = DateTime.Now;
+            present.Date = DateTime.Now.ToUniversalTime();
             present.Comment = data.comment;
 
             await _context.SaveChangesAsync();
@@ -251,53 +277,63 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             // Попытаемся найти такую оценку в БД.
 
-            Assessments? data = _context.Assessments.Find(id);
+            Assessments? data = await _context.Assessments.FindAsync(id);
 
             if (data == null)
             {
                 return NotFound();
             }
 
-            AssessmentByIdDTO result = new AssessmentByIdDTO();
-
-            result.id = id;
+            AssessmentByIdDTO result = new AssessmentByIdDTO
+            {
+                id = id
+            };
 
             // Запишем информацию об ученике, получившем оценку.
-            LearnerShortDTO learner = new LearnerShortDTO();
-            learner.Id = data.LearnerId;
+            LearnerShortDTO learner = new LearnerShortDTO
+            {
+                Id = data.LearnerId
+            };
             if (data.Learner == null)
             {
                 return NotFound("Learner not found");
             }
+
             learner.Name = data.Learner.Surname + data.Learner.Name;
             result.learner = learner;
 
             // Запишем информацию об оцениваемом задании.
 
-            TaskOutputDTO task = new TaskOutputDTO();
-            task.Id = data.TaskId;
+            TaskOutputDTO task = new TaskOutputDTO
+            {
+                Id = data.TaskId
+            };
             if (data.Task == null)
             {
                 return NotFound("Task not found");
             }
+
             task.Title = task.Title;
             result.task = task;
 
-            result.AssessmentType = _context.AssessmentsTypes.Find(data.AssessmentsType).Name;
+            result.AssessmentType = (await _context.AssessmentsTypes.FindAsync(data.AssessmentsType)).Name;
             // Если оценка трекерская, придётся вывести информацию о трекере.
             if (result.AssessmentType == "TrackerGrade")
             {
-                LearnerShortDTO tracker = new LearnerShortDTO();
-                tracker.Id = data.TrackerId;
+                LearnerShortDTO tracker = new LearnerShortDTO
+                {
+                    Id = data.TrackerId
+                };
                 if (data.Tracker == null)
                 {
                     return NotFound("Tracker not found");
                 }
+
                 tracker.Name = data.Tracker.Surname + data.Tracker.Name;
                 result.tracker = tracker;
             }
 
-            result.issueDate = data.Date;
+            result.issueDate = data.Date.ToUniversalTime();
             result.assessment = data.Grade;
             result.comment = data.Comment;
 
@@ -308,7 +344,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> DeleteAssessmentById(int id)
         {
-            Assessments? present = _context.Assessments.Find(id);
+            Assessments? present = await _context.Assessments.FindAsync(id);
 
             if (present == null)
             {
@@ -316,7 +352,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             _context.Assessments.Remove(present);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
 
             return Ok();
         }
@@ -331,7 +367,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> GetFinalGrade(int learnerId)
         {
             // Проверим, есть ли такой ученик в БД.
-            Learner? present = _context.Learner.Find(learnerId);
+            Learner? present = await _context.Learner.FindAsync(learnerId);
 
             if (present == null)
             {
@@ -340,21 +376,23 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             // Высчитываем все коэффициенты оценки.
 
-            double hw = GetFinalGradeByType("HW", learnerId);
-            double test = GetFinalGradeByType("Testing", learnerId);
-            double competition = GetFinalGradeByType("Competitions", learnerId);
-            double exam = GetFinalGradeByType("Exams", learnerId);
-            double attendance = GetFinalAttendGrade(learnerId);
+            double hw = await GetFinalGradeByType("HW", learnerId);
+            double test = await GetFinalGradeByType("Testing", learnerId);
+            double competition = await GetFinalGradeByType("Competitions", learnerId);
+            double exam = await GetFinalGradeByType("Exams", learnerId);
+            double attendance = await GetFinalAttendGrade(learnerId);
 
             // Высчитываем формулу.
 
-            double hwMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "HW").Weight;
-            double testMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Testing").Weight;
-            double competitionMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Competitions").Weight;
-            double examMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Exams").Weight;
-            double attendMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Attendance").Weight;
+            double hwMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "HW")).Weight;
+            double testMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Testing")).Weight;
+            double competitionMult =
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Competitions")).Weight;
+            double examMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Exams")).Weight;
+            double attendMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Attendance"))
+                .Weight;
 
-            double? bonusNullable = _context.Learner.Find(learnerId).GradeBonus;
+            double? bonusNullable = (await _context.Learner.FindAsync(learnerId)).GradeBonus;
             double bonus = 0;
 
             if (bonusNullable != null)
@@ -363,42 +401,54 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             double total = Math.Round(hw * hwMult + testMult * testMult + competition * competitionMult +
-                exam * examMult + attendance * attendMult + bonus, 2);
+                                      exam * examMult + attendance * attendMult + bonus, 2);
 
             // Теперь, когда все значения посчитаны, нужно послать эти данные с помощью DTO.\
             // Запакуем их...
 
             List<FinalAssessmentDTO> assessments = new List<FinalAssessmentDTO>();
 
-            FinalAssessmentDTO hwDTO = new FinalAssessmentDTO();
-            hwDTO.finalAssessment = Math.Round(hw * hwMult, 2);
-            hwDTO.type = "HW";
+            FinalAssessmentDTO hwDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(hw * hwMult, 2),
+                type = "HW"
+            };
             assessments.Add(hwDTO);
 
-            FinalAssessmentDTO testDTO = new FinalAssessmentDTO();
-            testDTO.finalAssessment = Math.Round(test * testMult, 2);
-            testDTO.type = "Testing";
+            FinalAssessmentDTO testDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(test * testMult, 2),
+                type = "Testing"
+            };
             assessments.Add(testDTO);
 
-            FinalAssessmentDTO compDTO = new FinalAssessmentDTO();
-            compDTO.finalAssessment = Math.Round(competition * competitionMult, 2);
-            compDTO.type = "Competitions";
+            FinalAssessmentDTO compDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(competition * competitionMult, 2),
+                type = "Competitions"
+            };
             assessments.Add(compDTO);
 
-            FinalAssessmentDTO examDTO = new FinalAssessmentDTO();
-            examDTO.finalAssessment = Math.Round(exam * examMult, 2);
-            examDTO.type = "Exams";
+            FinalAssessmentDTO examDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(exam * examMult, 2),
+                type = "Exams"
+            };
             assessments.Add(examDTO);
 
-            FinalAssessmentDTO attendDTO = new FinalAssessmentDTO();
-            attendDTO.finalAssessment = Math.Round(attendance * attendMult, 2);
-            attendDTO.type = "Attendance";
+            FinalAssessmentDTO attendDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(attendance * attendMult, 2),
+                type = "Attendance"
+            };
             assessments.Add(attendDTO);
 
-            FinalGradeDTO result = new FinalGradeDTO();
-            result.assessments = assessments;
-            result.bonus = bonus;
-            result.total = total;
+            FinalGradeDTO result = new FinalGradeDTO
+            {
+                assessments = assessments,
+                bonus = bonus,
+                total = total
+            };
 
             // И пошлём.
 
@@ -412,9 +462,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <param name="typeName"></param>
         /// <param name="learnerId"></param>
         /// <returns></returns>
-        private double GetFinalGradeByType(string typeName, int learnerId)
+        private async Task<double> GetFinalGradeByType(string typeName, int learnerId)
         {
-            TaskType? taskType = _context.TaskTypes.FirstOrDefault(type => type.Name == typeName);
+            TaskType? taskType = await _context.TaskTypes.FirstOrDefaultAsync(type => type.Name == typeName);
 
             if (taskType == null)
             {
@@ -424,8 +474,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             int typeNum = taskType.Id;
 
             var grades = from assessment in _context.Assessments
-                         where (assessment.Learner.Id == learnerId && assessment.AssessmentsType == 2 && assessment.Task.Type == _context.TaskTypes.Find(typeNum))
-                         select assessment.Grade;
+                where (assessment.Learner.Id == learnerId && assessment.AssessmentsType == 2 &&
+                       assessment.Task.Type == _context.TaskTypes.Find(typeNum))
+                select assessment.Grade;
 
             double answer = 0;
             foreach (var grade in grades)
@@ -442,15 +493,15 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// </summary>
         /// <param name="learnerId"></param>
         /// <returns></returns>
-        private double GetFinalAttendGrade(int learnerId)
+        private async Task<double> GetFinalAttendGrade(int learnerId)
         {
-            double allLessonsCount = _context.Lessons.Count();
+            double allLessonsCount = await _context.Lessons.CountAsync();
 
             var attendedLessons = from attendedLesson in _context.Attends
-                                  where attendedLesson.LearnerId == learnerId
-                                  select attendedLesson;
+                where attendedLesson.LearnerId == learnerId
+                select attendedLesson;
 
-            double attendedLessonsCount = attendedLessons.Count();
+            double attendedLessonsCount = await attendedLessons.CountAsync();
 
             double answer = Math.Round((attendedLessonsCount / allLessonsCount) * 10, 2);
 
@@ -463,35 +514,45 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             List<FinalWeightDTO> result = new List<FinalWeightDTO>();
 
-            FinalGradeType hw = _context.FinalTypes.Find(1);
-            FinalGradeType testing = _context.FinalTypes.Find(2);
-            FinalGradeType competition = _context.FinalTypes.Find(3);
-            FinalGradeType exam = _context.FinalTypes.Find(4);
-            FinalGradeType attend = _context.FinalTypes.Find(5);
+            FinalGradeType hw = await _context.FinalTypes.FindAsync(1);
+            FinalGradeType testing = await _context.FinalTypes.FindAsync(2);
+            FinalGradeType competition = await _context.FinalTypes.FindAsync(3);
+            FinalGradeType exam = await _context.FinalTypes.FindAsync(4);
+            FinalGradeType attend = await _context.FinalTypes.FindAsync(5);
 
-            FinalWeightDTO hwWeight = new FinalWeightDTO();
-            hwWeight.weight = hw.Weight;
-            hwWeight.type = hw.Name;
+            FinalWeightDTO hwWeight = new FinalWeightDTO
+            {
+                weight = hw.Weight,
+                type = hw.Name
+            };
             result.Add(hwWeight);
 
-            FinalWeightDTO testWeight = new FinalWeightDTO();
-            testWeight.weight = testing.Weight;
-            testWeight.type = testing.Name;
+            FinalWeightDTO testWeight = new FinalWeightDTO
+            {
+                weight = testing.Weight,
+                type = testing.Name
+            };
             result.Add(testWeight);
 
-            FinalWeightDTO competitionWeight = new FinalWeightDTO();
-            competitionWeight.weight = competition.Weight;
-            competitionWeight.type = competition.Name;
+            FinalWeightDTO competitionWeight = new FinalWeightDTO
+            {
+                weight = competition.Weight,
+                type = competition.Name
+            };
             result.Add(competitionWeight);
 
-            FinalWeightDTO examWeight = new FinalWeightDTO();
-            examWeight.weight = exam.Weight;
-            examWeight.type = exam.Name;
+            FinalWeightDTO examWeight = new FinalWeightDTO
+            {
+                weight = exam.Weight,
+                type = exam.Name
+            };
             result.Add(examWeight);
 
-            FinalWeightDTO attendWeight = new FinalWeightDTO();
-            attendWeight.weight = attend.Weight;
-            attendWeight.type = attend.Name;
+            FinalWeightDTO attendWeight = new FinalWeightDTO
+            {
+                weight = attend.Weight,
+                type = attend.Name
+            };
             result.Add(attendWeight);
 
             return Ok(result);
@@ -505,35 +566,37 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             if (hw != null)
             {
-                _context.FinalTypes.FirstOrDefault(type => type.Name == "HW").Weight = hw.weight;
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "HW")).Weight = hw.weight;
             }
 
             FinalWeightDTO? test = result.FirstOrDefault(type => type.type == "Testing");
 
             if (test != null)
             {
-                _context.FinalTypes.FirstOrDefault(type => type.Name == "Testing").Weight = test.weight;
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Testing")).Weight = test.weight;
             }
 
             FinalWeightDTO? comp = result.FirstOrDefault(type => type.type == "Competitions");
 
             if (comp != null)
             {
-                _context.FinalTypes.FirstOrDefault(type => type.Name == "Competitions").Weight = comp.weight;
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Competitions")).Weight =
+                    comp.weight;
             }
 
             FinalWeightDTO? exam = result.FirstOrDefault(type => type.type == "Exams");
 
             if (exam != null)
             {
-                _context.FinalTypes.FirstOrDefault(type => type.Name == "Exams").Weight = exam.weight;
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Exams")).Weight = exam.weight;
             }
 
             FinalWeightDTO? attend = result.FirstOrDefault(type => type.type == "Attendance");
 
             if (attend != null)
             {
-                _context.FinalTypes.FirstOrDefault(type => type.Name == "Attendance").Weight = attend.weight;
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Attendance")).Weight =
+                    attend.weight;
             }
 
             await _context.SaveChangesAsync();
@@ -549,7 +612,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 return BadRequest("Some of the crucial properties have not been specified");
             }
 
-            Learner? present = _context.Learner.Find(data.learnerId);
+            Learner? present = await _context.Learner.FindAsync(data.learnerId);
 
             if (present == null)
             {
@@ -577,19 +640,22 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             var assessments = from assess in _context.Assessments
-                              where assess.AssessmentsType == 2 && assess.Task.Type.Name == taskType && assess.LearnerId == learnerId
-                              select assess;
+                where assess.AssessmentsType == 2 && assess.Task.Type.Name == taskType && assess.LearnerId == learnerId
+                select assess;
 
             List<LearnerAssessmentDTO> result = new List<LearnerAssessmentDTO>();
 
             foreach (var assess in assessments)
             {
-                LearnerAssessmentDTO newDTO = new LearnerAssessmentDTO();
-
-                newDTO.id = assess.Id;
-                newDTO.taskTitle = assess.Task.Title;
-                newDTO.taskType = assess.Task.Type.Name;
-                newDTO.issueDate = assess.Date;
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                DateTime dateTimeConverted = TimeZoneInfo.ConvertTime((DateTime)assess.Date, tz);
+                LearnerAssessmentDTO newDTO = new LearnerAssessmentDTO
+                {
+                    id = assess.Id,
+                    taskTitle = assess.Task.Title,
+                    taskType = assess.Task.Type.Name,
+                    issueDate = dateTimeConverted,
+                };
 
                 if (assess.Task.Lesson != null)
                 {
@@ -599,6 +665,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 {
                     newDTO.lessonId = null;
                 }
+
                 newDTO.assessment = assess.Grade;
 
                 result.Add(newDTO);
@@ -620,21 +687,23 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             // Высчитываем все коэффициенты оценки.
 
-            double hw = GetFinalGradeByType("HW", learnerId);
-            double test = GetFinalGradeByType("Testing", learnerId);
-            double competition = GetFinalGradeByType("Competitions", learnerId);
-            double exam = GetFinalGradeByType("Exams", learnerId);
-            double attendance = GetFinalAttendGrade(learnerId);
+            double hw = await GetFinalGradeByType("HW", learnerId);
+            double test = await GetFinalGradeByType("Testing", learnerId);
+            double competition = await GetFinalGradeByType("Competitions", learnerId);
+            double exam = await GetFinalGradeByType("Exams", learnerId);
+            double attendance = await GetFinalAttendGrade(learnerId);
 
             // Высчитываем формулу.
 
-            double hwMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "HW").Weight;
-            double testMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Testing").Weight;
-            double competitionMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Competitions").Weight;
-            double examMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Exams").Weight;
-            double attendMult = _context.FinalTypes.FirstOrDefault(type => type.Name == "Attendance").Weight;
+            double hwMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "HW")).Weight;
+            double testMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Testing")).Weight;
+            double competitionMult =
+                (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Competitions")).Weight;
+            double examMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Exams")).Weight;
+            double attendMult = (await _context.FinalTypes.FirstOrDefaultAsync(type => type.Name == "Attendance"))
+                .Weight;
 
-            double? bonusNullable = _context.Learner.Find(learnerId).GradeBonus;
+            double? bonusNullable = (await _context.Learner.FindAsync(learnerId)).GradeBonus;
             double bonus = 0;
 
             if (bonusNullable != null)
@@ -643,42 +712,54 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             double total = Math.Round(hw * hwMult + testMult * testMult + competition * competitionMult +
-                exam * examMult + attendance * attendMult + bonus, 2);
+                                      exam * examMult + attendance * attendMult + bonus, 2);
 
             // Теперь, когда все значения посчитаны, нужно послать эти данные с помощью DTO.
             // Запакуем их...
 
             List<FinalAssessmentDTO> assessments = new List<FinalAssessmentDTO>();
 
-            FinalAssessmentDTO hwDTO = new FinalAssessmentDTO();
-            hwDTO.finalAssessment = Math.Round(hw * hwMult, 2);
-            hwDTO.type = "HW";
+            FinalAssessmentDTO hwDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(hw * hwMult, 2),
+                type = "HW"
+            };
             assessments.Add(hwDTO);
 
-            FinalAssessmentDTO testDTO = new FinalAssessmentDTO();
-            testDTO.finalAssessment = Math.Round(test * testMult, 2);
-            testDTO.type = "Testing";
+            FinalAssessmentDTO testDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(test * testMult, 2),
+                type = "Testing"
+            };
             assessments.Add(testDTO);
 
-            FinalAssessmentDTO compDTO = new FinalAssessmentDTO();
-            compDTO.finalAssessment = Math.Round(competition * competitionMult, 2);
-            compDTO.type = "Competitions";
+            FinalAssessmentDTO compDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(competition * competitionMult, 2),
+                type = "Competitions"
+            };
             assessments.Add(compDTO);
 
-            FinalAssessmentDTO examDTO = new FinalAssessmentDTO();
-            examDTO.finalAssessment = Math.Round(exam * examMult, 2);
-            examDTO.type = "Exams";
+            FinalAssessmentDTO examDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(exam * examMult, 2),
+                type = "Exams"
+            };
             assessments.Add(examDTO);
 
-            FinalAssessmentDTO attendDTO = new FinalAssessmentDTO();
-            attendDTO.finalAssessment = Math.Round(attendance * attendMult, 2);
-            attendDTO.type = "Attendance";
+            FinalAssessmentDTO attendDTO = new FinalAssessmentDTO
+            {
+                finalAssessment = Math.Round(attendance * attendMult, 2),
+                type = "Attendance"
+            };
             assessments.Add(attendDTO);
 
-            FinalGradeDTO result = new FinalGradeDTO();
-            result.assessments = assessments;
-            result.bonus = bonus;
-            result.total = total;
+            FinalGradeDTO result = new FinalGradeDTO
+            {
+                assessments = assessments,
+                bonus = bonus,
+                total = total
+            };
 
             // И пошлём.
 
@@ -690,13 +771,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> CreateTrackerAssessment([FromBody] AssessmentInputDTO data)
         {
             // Сначала проверяем достаточность имеющихся данных.
-            if (!ModelState.IsValid)
+            if (!ModelState.IsValid || data.learnerId == null || data.taskId == null)
             {
                 return BadRequest("Some of the crucial properties have not been specified");
             }
 
             // С помощью авторизации мы можем найти логин трекера и найти по нему его идентификатор.
-            Learner? tracker = _context.Learner.FirstOrDefault(tracker => tracker.Id == int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value));
+            Learner? tracker = _context.Learner.FirstOrDefault(tracker =>
+                tracker.Id == int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value));
 
             if (tracker == null)
             {
@@ -704,22 +786,24 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             // Конструируем новый объект оценки по имеющимся данным.
-            Assessments newAssessment = new Assessments();
-
-            newAssessment.LearnerId = data.learnerId;
-            newAssessment.Learner = _context.Learner.Find(data.learnerId);
-            newAssessment.TaskId = data.taskId;
-            newAssessment.Task = _context.Tasks.Find(data.taskId);
-            newAssessment.Grade = data.assessment;
-            newAssessment.Date = DateTime.Now;
-            newAssessment.Comment = data.comment;
-            newAssessment.AssessmentsType = 1;
-            newAssessment.TrackerId = tracker.Id;
-            newAssessment.Tracker = tracker;
+            Assessments newAssessment = new Assessments
+            {
+                LearnerId = data.learnerId ?? 0,
+                Learner = await _context.Learner.FindAsync(data.learnerId),
+                TaskId = data.taskId ?? 0,
+                Task = await _context.Tasks.FindAsync(data.taskId),
+                Grade = data.assessment,
+                Date = DateTime.Now.ToUniversalTime(),
+                Comment = data.comment,
+                AssessmentsType = 1,
+                TrackerId = tracker.Id,
+                Tracker = tracker
+            };
 
             // Проверяем, не является ли эта оценка копией какой-то другой оценки из БД.
-            Assessments? possibleCopy = _context.Assessments.FirstOrDefault(assessment => assessment.LearnerId == newAssessment.LearnerId &&
-                                                                                assessment.TaskId == newAssessment.TaskId && assessment.TrackerId == newAssessment.TrackerId);
+            Assessments? possibleCopy = await _context.Assessments.FirstOrDefaultAsync(assessment =>
+                assessment.LearnerId == newAssessment.LearnerId &&
+                assessment.TaskId == newAssessment.TaskId && assessment.TrackerId == newAssessment.TrackerId);
 
             if (possibleCopy != null)
             {
@@ -744,7 +828,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             // Ищем трекера по информации авторизации.
-            Learner? tracker = _context.Learner.FirstOrDefault(user => user.Id == int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value));
+            Learner? tracker = await _context.Learner.FirstOrDefaultAsync(user =>
+                user.Id == int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value));
 
             if (tracker == null)
             {
@@ -752,7 +837,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             // Ищем подходящую оценку.
-            Assessments thisAssessment = _context.Assessments.FirstOrDefault(assessment => assessment.Id == data.id && assessment.TrackerId == tracker.Id);
+            Assessments thisAssessment = await _context.Assessments.FirstOrDefaultAsync(assessment =>
+                assessment.Id == data.id && assessment.TrackerId == tracker.Id);
 
             if (thisAssessment == null)
             {
@@ -762,7 +848,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             // Меняем информацию об оценке.
             thisAssessment.Grade = data.assessment;
             thisAssessment.Comment = data.comment;
-            thisAssessment.Date = DateTime.Now;
+            thisAssessment.Date = DateTime.Now.ToUniversalTime();
 
             await _context.SaveChangesAsync();
 

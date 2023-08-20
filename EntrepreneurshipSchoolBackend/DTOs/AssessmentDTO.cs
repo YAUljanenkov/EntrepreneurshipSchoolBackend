@@ -26,10 +26,9 @@ namespace EntrepreneurshipSchoolBackend.DTOs
     public class AssessmentInputDTO
     {
         [Required] public int id { get; set; }
-        [Required] public int learnerId { get; set; }
-        public int? teamId { get; set;}
+        public int? learnerId { get; set; }
         [Required] public int assessment { get; set; }
-        [Required] public int taskId { get; set;}
+        public int? taskId { get; set;}
         public string? comment { get; set; }
     }
 
