@@ -79,8 +79,9 @@ public record ClaimDTO
         {
             this.task = new Task(claim.Task.Id, claim.Task.Title);
         }
-
-        dateTime = claim.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
+        TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+        DateTime dateTimeConverted = TimeZoneInfo.ConvertTime(claim.Date, tz);
+        dateTime = dateTimeConverted.ToString("O");
         status = claim.Status.Name;
         if (claim.Sum != null)
         {

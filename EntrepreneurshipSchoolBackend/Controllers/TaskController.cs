@@ -145,22 +145,24 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             List<TaskPageDTO> displayedTasks = new List<TaskPageDTO>();
-
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
             foreach (var task in tasksOnThePage)
             {
-                TaskPageDTO newTask = new TaskPageDTO();
-
-                newTask.Id = task.Id;
-                newTask.Title = task.Title;
-                newTask.deadline = task.Deadline;
-                newTask.TaskType = task.Type.Name;
+                TaskPageDTO newTask = new TaskPageDTO
+                {
+                    Id = task.Id,
+                    Title = task.Title,
+                    deadline = TimeZoneInfo.ConvertTime(task.Deadline, tz),
+                    TaskType = task.Type.Name
+                };
 
                 if (task.Lesson != null)
                 {
-                    LessonOutputDTO lesson = new LessonOutputDTO();
-
-                    lesson.Id = task.Lesson.Id;
-                    lesson.Number = task.Lesson.Number;
+                    LessonOutputDTO lesson = new LessonOutputDTO
+                    {
+                        Id = task.Lesson.Id,
+                        Number = task.Lesson.Number
+                    };
 
                     newTask.Lesson = lesson;
                 }
@@ -172,16 +174,19 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 displayedTasks.Add(newTask);
             }
 
-            Pagination pages = new Pagination();
+            Pagination pages = new Pagination
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalElements = tasks.Count(),
+                TotalPages = tasks.Count() / pageSize
+            };
 
-            pages.Page = page;
-            pages.PageSize = pageSize;
-            pages.TotalElements = tasks.Count();
-            pages.TotalPages = tasks.Count() / pageSize;
-
-            var response = new TaskOutputPageDTO();
-            response.pagination = pages;
-            response.content = displayedTasks;
+            var response = new TaskOutputPageDTO
+            {
+                pagination = pages,
+                content = displayedTasks
+            };
 
             return Ok(response);
         }
@@ -212,10 +217,11 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 return BadRequest("Some of the crucial fields were not specified!");
             }
 
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
             Models.Task newTask = new Models.Task
             {
                 Title = data.title,
-                Deadline = data.deadline.Value,
+                Deadline = data.deadline.Value.ToUniversalTime(),
                 IsGroup = data.isTeamWork,
                 Comment = data.description,
                 Criteria = data.criteria,
@@ -267,7 +273,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 return BadRequest("Some of the crucial properties were not specified!");
             }
 
-            Models.Task? updatedTask = _context.Tasks.Find(data.id);
+            Models.Task? updatedTask = await _context.Tasks.FindAsync(data.id);
             if (updatedTask == null)
             {
                 return NotFound();
@@ -276,13 +282,13 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             updatedTask.Title = data.title;
             updatedTask.Criteria = data.criteria;
             updatedTask.Comment = data.description;
-            updatedTask.Deadline = data.deadline.Value;
+            updatedTask.Deadline = data.deadline.Value.ToUniversalTime();
             updatedTask.IsGroup = data.isTeamWork;
             updatedTask.Link = data.link;
 
             if (data.lessonId != null)
             {
-                Lesson? connectedLesson = _context.Lessons.Find(data.lessonId);
+                Lesson? connectedLesson = await _context.Lessons.FindAsync(data.lessonId);
                 if (connectedLesson == null)
                 {
                     return NotFound();
@@ -291,7 +297,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 updatedTask.Lesson = connectedLesson;
             }
 
-            TaskType? connectedType = _context.TaskTypes.FirstOrDefault(type => type.Name == data.taskType);
+            TaskType? connectedType = await _context.TaskTypes.FirstOrDefaultAsync(type => type.Name == data.taskType);
             if (connectedType == null)
             {
                 return NotFound();
@@ -299,7 +305,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(updatedTask);
+            return Ok();
         }
 
         /// <summary>
@@ -311,14 +317,31 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetTaskById(int id)
         {
-            Models.Task? thisTask = await _context.Tasks.FindAsync(id);
+            Models.Task? thisTask = await _context.Tasks.Include(x => x.Lesson).Include(x => x.Type)
+                .FirstOrDefaultAsync(x => x.Id == id);
 
             if (thisTask == null)
             {
                 return NotFound();
             }
 
-            return Ok(thisTask);
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+            return Ok(new
+            {
+                id = thisTask.Id,
+                title = thisTask.Title,
+                lesson = new
+                {
+                    id = thisTask.Lesson?.Id,
+                    number = thisTask.Lesson?.Number
+                },
+                description = thisTask.Comment,
+                criteria = thisTask.Criteria,
+                isTeamWork = thisTask.IsGroup,
+                link = thisTask.Link,
+                taskType = thisTask.Type.Name,
+                deadline = TimeZoneInfo.ConvertTime(thisTask.Deadline, tz).ToString("O")
+            });
         }
 
         ///
@@ -392,10 +415,11 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             if (thisTask.Lesson != null)
             {
-                LessonOutputDTO lesson = new LessonOutputDTO();
-
-                lesson.Id = thisTask.Lesson.Id;
-                lesson.Number = thisTask.Lesson.Number;
+                LessonOutputDTO lesson = new LessonOutputDTO
+                {
+                    Id = thisTask.Lesson.Id,
+                    Number = thisTask.Lesson.Number
+                };
 
                 result.lesson = lesson;
             }
@@ -404,13 +428,15 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 result.lesson = null;
             }
 
-            TaskOutputDTO task = new TaskOutputDTO();
-            task.Id = thisTask.Id;
-            task.Title = thisTask.Title;
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
 
+            TaskOutputDTO task = new TaskOutputDTO
+            {
+                Id = thisTask.Id,
+                Title = thisTask.Title
+            };
             result.task = task;
-
-            result.deadline = thisTask.Deadline;
+            result.deadline = TimeZoneInfo.ConvertTime(thisTask.Deadline, tz);
 
             return Ok(result);
         }

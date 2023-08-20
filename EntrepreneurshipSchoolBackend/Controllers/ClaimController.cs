@@ -47,7 +47,7 @@ public class ClaimController : ControllerBase
     [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> getAdminClaims(string claimType, string? claimStatus, int? lotNumber,
         int? learnerId,
-        int? taskId, int? receiverId, string? dateFrom, string? dateTo, string? sortProperty, string? sortOrder,
+        int? taskId, int? receiverId, DateTime? dateFrom, DateTime? dateTo, string? sortProperty, string? sortOrder,
         int? page, int? pageSize)
     {
         if (!new[] { "BuyingLot", "FailedDeadline", "PlacingLot", "Transfer" }.Contains(claimType))
@@ -59,23 +59,10 @@ public class ClaimController : ControllerBase
         {
             return new BadRequestObjectResult("Incorrect parameters.");
         }
-
-        DateTime dateFromValue = DateTime.MinValue, dateToValue = DateTime.MinValue;
-        var ruRU = new CultureInfo("ru-RU");
-
-        if (dateFrom != null &&
-            !DateTime.TryParseExact(dateFrom, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateFromValue))
-        {
-            return new BadRequestObjectResult("Incorrect parameters.");
-        }
-
-        dateFromValue = dateFromValue.ToUniversalTime();
-        if (dateTo != null && !DateTime.TryParseExact(dateTo, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateToValue))
-        {
-            return new BadRequestObjectResult("Incorrect parameters.");
-        }
-
-        dateToValue = dateToValue.ToUniversalTime();
+        
+        var dateFromValue = dateFrom?.ToUniversalTime();
+        var dateToValue = dateTo?.ToUniversalTime();
+        
         if (sortProperty != null &&
             !new[] { "id", "learner", "name", "datetime", "date", "claimStatus", "sum" }.Contains(
                 sortProperty.ToLower()))
@@ -110,32 +97,28 @@ public class ClaimController : ControllerBase
             .Where(x => dateFromValue == DateTime.MinValue || dateFromValue < x.Date)
             .Where(x => dateToValue == DateTime.MinValue || dateToValue > x.Date);
 
-        if (claimType == "BuyingLot")
+        switch (claimType)
         {
-            query = query
-                .Where(x => learnerId == null || x.Receiver != null && x.Receiver.Id == learnerId)
-                .Where(x => lotNumber == null || x.Lot != null && x.Lot.Number == lotNumber);
-        }
-
-        if (claimType == "FailedDeadline")
-        {
-            query = query
-                .Where(x => learnerId == null || x.Learner != null && x.Learner.Id == learnerId)
-                .Where(x => taskId == null || x.Task != null && x.Task.Id == taskId);
-        }
-
-        if (claimType == "PlacingLot")
-        {
-            query = query
-                .Where(x => learnerId == null || x.Learner != null && x.Learner.Id == learnerId)
-                .Where(x => lotNumber == null || x.Lot != null && x.Lot.Number == lotNumber);
-        }
-
-        if (claimType == "Transfer")
-        {
-            query = query
-                .Where(x => receiverId == null || x.Receiver != null && x.Receiver.Id == receiverId)
-                .Where(x => lotNumber == null || x.Learner != null && x.Learner.Id == lotNumber);
+            case "BuyingLot":
+                query = query
+                    .Where(x => learnerId == null || x.Receiver != null && x.Receiver.Id == learnerId)
+                    .Where(x => lotNumber == null || x.Lot != null && x.Lot.Number == lotNumber);
+                break;
+            case "FailedDeadline":
+                query = query
+                    .Where(x => learnerId == null || x.Learner != null && x.Learner.Id == learnerId)
+                    .Where(x => taskId == null || x.Task != null && x.Task.Id == taskId);
+                break;
+            case "PlacingLot":
+                query = query
+                    .Where(x => learnerId == null || x.Learner != null && x.Learner.Id == learnerId)
+                    .Where(x => lotNumber == null || x.Lot != null && x.Lot.Number == lotNumber);
+                break;
+            case "Transfer":
+                query = query
+                    .Where(x => receiverId == null || x.Receiver != null && x.Receiver.Id == receiverId)
+                    .Where(x => lotNumber == null || x.Learner != null && x.Learner.Id == lotNumber);
+                break;
         }
 
         query = sortProperty?.ToLower() switch
@@ -358,8 +341,8 @@ public class ClaimController : ControllerBase
     /// <returns>list of claims with pagination info.</returns>
     [HttpGet("/learner/claims")]
     [Authorize(Roles = Roles.Learner)]
-    public async Task<IActionResult> getLearnerClaims(string? claimType, string? claimStatus, string? dateFrom,
-        string? dateTo,
+    public async Task<IActionResult> getLearnerClaims(string? claimType, string? claimStatus, DateTime? dateFrom,
+        DateTime? dateTo,
         string? sortProperty, string? sortOrder, int? page, int? pageSize)
     {
         if (!int.TryParse(HttpContext.User.FindFirst(ClaimTypes.Sid)?.Value, out int learnerId))
@@ -384,22 +367,8 @@ public class ClaimController : ControllerBase
             return new BadRequestObjectResult("Incorrect parameters.");
         }
 
-        DateTime dateFromValue = DateTime.MinValue, dateToValue = DateTime.MinValue;
-        var ruRU = new CultureInfo("ru-RU");
-
-        if (dateFrom != null &&
-            !DateTime.TryParseExact(dateFrom, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateFromValue))
-        {
-            return new BadRequestObjectResult("Incorrect parameters.");
-        }
-
-        dateFromValue = dateFromValue.ToUniversalTime();
-        if (dateTo != null && !DateTime.TryParseExact(dateTo, "dd.MM.yyyy", ruRU, DateTimeStyles.None, out dateToValue))
-        {
-            return new BadRequestObjectResult("Incorrect parameters.");
-        }
-
-        dateToValue = dateToValue.ToUniversalTime();
+        var dateFromValue = dateFrom?.ToUniversalTime();
+        var dateToValue = dateTo?.ToUniversalTime();
         if (sortProperty != null &&
             !new[] { "id", "learner", "name", "datetime", "date", "claimStatus", "sum" }.Contains(
                 sortProperty.ToLower()))

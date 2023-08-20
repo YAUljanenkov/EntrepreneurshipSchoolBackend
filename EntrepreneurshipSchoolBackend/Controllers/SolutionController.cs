@@ -20,14 +20,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [HttpGet("/admin/solutions")]
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> AdminGetSolutions([Required] int taskId, int? learnerId, int? teamId,
-                                    string sortProperty, string sortOrder, int page, int pageSize)
+            string sortProperty, string sortOrder, int page, int pageSize)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return BadRequest("Some of the crucial properties have not been specified");
             }
 
-            Models.Task? thisTask = _context.Tasks.Find(taskId);
+            Models.Task? thisTask = await _context.Tasks.FindAsync(taskId);
 
             if (thisTask == null)
             {
@@ -35,8 +35,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             var solutions = from solution in _context.Solutions
-                            where solution.TaskId == taskId
-                            select solution;
+                where solution.TaskId == taskId
+                select solution;
 
             if (thisTask.IsGroup == true)
             {
@@ -46,9 +46,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
 
                 solutions = from solution in solutions
-                            where solution.GroupId == teamId
-                            select solution;
-            } 
+                    where solution.GroupId == teamId
+                    select solution;
+            }
             else
             {
                 if (learnerId == null)
@@ -57,8 +57,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
 
                 solutions = from solution in solutions
-                            where solution.LearnerId == learnerId
-                            select solution;
+                    where solution.LearnerId == learnerId
+                    select solution;
             }
 
             // Пока есть (и, наверное, другие не требуются) сортировки по имени ученика/группы и дате сдачи.
@@ -84,7 +84,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                         }
                         else
                         {
-                            solutions = solutions.OrderByDescending(solution => solution.Learner.Surname + solution.Learner.Name);
+                            solutions = solutions.OrderByDescending(solution =>
+                                solution.Learner.Surname + solution.Learner.Name);
                         }
                     }
 
@@ -104,39 +105,47 @@ namespace EntrepreneurshipSchoolBackend.Controllers
 
             List<SolutionDTO> content = new List<SolutionDTO>();
 
-            foreach(Solution solution in solutions)
+            foreach (Solution solution in solutions)
             {
                 SolutionDTO newDTO = new SolutionDTO();
 
                 if (solution.Learner != null)
                 {
-                    LearnerShortDTO learner = new LearnerShortDTO();
-                    learner.Id = solution.Learner.Id;
-                    learner.Name = solution.Learner.Name;
+                    LearnerShortDTO learner = new LearnerShortDTO
+                    {
+                        Id = solution.Learner.Id,
+                        Name = solution.Learner.Name
+                    };
                     newDTO.learner = learner;
                 }
 
                 if (solution.Group != null)
                 {
-                    GroupDTO group = new GroupDTO();
-                    group.Id = solution.Group.Id;
-                    group.Number = solution.Group.Number;
+                    GroupDTO group = new GroupDTO
+                    {
+                        Id = solution.Group.Id,
+                        Number = solution.Group.Number
+                    };
                     newDTO.team = group;
                 }
 
-                newDTO.completeDateTime = solution.CompleteDate;
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                newDTO.completeDateTime = TimeZoneInfo.ConvertTime(solution.CompleteDate, tz);
                 newDTO.fileId = solution.fileId;
             }
 
-            SolutionListDTO result = new SolutionListDTO();
-            result.content = content;
+            SolutionListDTO result = new SolutionListDTO
+            {
+                content = content
+            };
 
-            Pagination pagination = new Pagination();
-
-            pagination.Page = page;
-            pagination.PageSize = pageSize;
-            pagination.TotalElements = content.Count();
-            pagination.TotalPages = (content.Count()/pageSize) + 1;
+            Pagination pagination = new Pagination
+            {
+                Page = page,
+                PageSize = pageSize,
+                TotalElements = content.Count,
+                TotalPages = (content.Count / pageSize) + 1
+            };
 
             result.pagination = pagination;
 
@@ -152,44 +161,49 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             int learnerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
 
             var solutions = from solution in _context.Solutions
-                            where solution.LearnerId == learnerId
-                            select solution;
+                where solution.LearnerId == learnerId
+                select solution;
 
             // Так как требуется выводить ВСЕ ДЗ, даже не сделанные, посмотрим что не сделано.
             // Возьмём все таски-ДЗ.
             var homeworks = from task in _context.Tasks
-                            where task.Type.Name == "HW" 
-                            select task;
+                where task.Type.Name == "HW"
+                select task;
 
             foreach (var solution in solutions)
             {
-                SolutionLearnerDTO newDTO = new SolutionLearnerDTO();
-
-                TaskOutputDTO task = new TaskOutputDTO();
-                task.Id = solution.TaskId;
-                task.Title = solution.Task.Title;
-
-                newDTO.task = task;
-                newDTO.completeDateTime = solution.CompleteDate;
-                newDTO.deadline = solution.Task.Deadline;
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                SolutionLearnerDTO newDTO = new SolutionLearnerDTO
+                {
+                    task = new TaskOutputDTO
+                    {
+                        Id = solution.TaskId,
+                        Title = solution.Task.Title
+                    },
+                    completeDateTime = TimeZoneInfo.ConvertTime((DateTime)solution.CompleteDate, tz),
+                    deadline = solution.Task.Deadline
+                };
+                result.Add(newDTO);
             }
 
             foreach (var homework in homeworks)
             {
-                var hasSolution = _context.Solutions.FirstOrDefault(solution => solution.Task == homework);
+                var hasSolution = await _context.Solutions.FirstOrDefaultAsync(solution => solution.Task == homework);
 
                 // Если на какое-то ДЗ НЕ найдено решения, то нам нужно отразить это в ответе. 
-                if (hasSolution == null) 
+                if (hasSolution == null)
                 {
-                    SolutionLearnerDTO newDTO = new SolutionLearnerDTO();
-
-                    TaskOutputDTO task = new TaskOutputDTO();
-                    task.Id = homework.Id;
-                    task.Title = homework.Title;
-
-                    newDTO.task = task;
-                    newDTO.completeDateTime = null;
-                    newDTO.deadline = homework.Deadline;
+                    SolutionLearnerDTO newDTO = new SolutionLearnerDTO
+                    {
+                        task = new TaskOutputDTO
+                        {
+                            Id = homework.Id,
+                            Title = homework.Title
+                        },
+                        completeDateTime = null,
+                        deadline = homework.Deadline
+                    };
+                    result.Add(newDTO);
                 }
             }
 
@@ -202,65 +216,64 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         {
             int learnerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
 
-            Models.Task? thisTask = _context.Tasks.Find(taskId);
-            
+            Models.Task? thisTask = await _context.Tasks.FindAsync(taskId);
+
             if (thisTask == null)
             {
                 return NotFound();
             }
 
-            Solution? thisSolution = _context.Solutions.FirstOrDefault(solution => solution.TaskId == taskId && solution.LearnerId == learnerId);
+            var thisSolution = await _context.Solutions.FirstOrDefaultAsync(solution =>
+                solution.TaskId == taskId && solution.LearnerId == learnerId);
 
             if (thisSolution == null)
             {
                 return NotFound();
             }
 
-            SolutionByIdDTO result = new SolutionByIdDTO();
-
-            result.Id = 0;
-
             // Теперь наполним поле о задании в ответе на запрос.
-            TaskSolutionDTO task = new TaskSolutionDTO();
 
-            task.Id = taskId;
-            task.title = thisTask.Title;
-            
-            LessonOutputDTO lesson = new LessonOutputDTO();
-            lesson.Id = thisTask.Lesson.Id;
-            lesson.Number = thisTask.Lesson.Number;
-            task.lesson = lesson;
-
-            task.description = thisTask.Comment;
-            task.criteria = thisTask.Criteria;
-            task.isTeamwork = thisTask.IsGroup;
-            task.link = thisTask.Link;
-            task.deadline = thisTask.Deadline;
-            task.taskType = thisTask.Type.Name;
-
-            result.task = task;
-
-            result.completeDateTime = thisSolution.CompleteDate;
-            result.fileId = thisSolution.fileId;
+            LessonOutputDTO lesson = new LessonOutputDTO
+            {
+                Id = thisTask.Lesson.Id,
+                Number = thisTask.Lesson.Number
+            };
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+            TaskSolutionDTO task = new TaskSolutionDTO
+            {
+                Id = taskId,
+                title = thisTask.Title,
+                lesson = lesson,
+                description = thisTask.Comment,
+                criteria = thisTask.Criteria,
+                isTeamwork = thisTask.IsGroup,
+                link = thisTask.Link,
+                deadline = TimeZoneInfo.ConvertTime(thisTask.Deadline, tz),
+                taskType = thisTask.Type.Name
+            };
+            SolutionByIdDTO result = new SolutionByIdDTO
+            {
+                Id = 0,
+                task = task,
+                completeDateTime = thisSolution.CompleteDate,
+                fileId = thisSolution.fileId
+            };
 
             List<AssessmentTrackerDTO> trackerAssessments = new List<AssessmentTrackerDTO>();
 
             var foundAssessments = from assessment in _context.Assessments
-                                   where assessment.AssessmentsType == 1 && assessment.LearnerId == learnerId
-                                   select assessment;
+                where assessment.AssessmentsType == 1 && assessment.LearnerId == learnerId
+                select assessment;
 
             foreach (var assessment in foundAssessments)
             {
-                AssessmentTrackerDTO newDTO = new AssessmentTrackerDTO();
-
-                newDTO.id = assessment.Id;
-                newDTO.trackerName = assessment.Tracker.Surname;
-
-                newDTO.trackerName += " ";
-                newDTO.trackerName += assessment.Tracker.Name;
-
-                newDTO.assessment = assessment.Grade;
-                newDTO.comment = assessment.Comment;
+                AssessmentTrackerDTO newDTO = new AssessmentTrackerDTO
+                {
+                    id = assessment.Id,
+                    trackerName = $"{assessment.Tracker?.Surname ?? ""} {assessment.Tracker?.Name ?? ""}",
+                    assessment = assessment.Grade,
+                    comment = assessment.Comment
+                };
 
                 trackerAssessments.Add(newDTO);
             }
@@ -278,31 +291,31 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         /// <returns></returns>
         [HttpGet("/tracker/solutions/tasks")]
         [Authorize(Roles = Roles.Tracker)]
-        public async Task<ActionResult> TrackerGetTask (string sortProperty, string sortOrder)
+        public async Task<ActionResult> TrackerGetTask(string sortProperty, string sortOrder)
         {
             // Получаем id трекера по авторизации.
             int trackerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
 
             // Получаем все группы, в которых состоит этот трекер. 
             var groups = from relation in _context.Relates
-                         where relation.LearnerId == trackerId
-                         select _context.Groups.First(gr => gr.Id == relation.GroupId);
+                where relation.LearnerId == trackerId
+                select _context.Groups.First(gr => gr.Id == relation.GroupId);
 
             List<Learner> learners = new List<Learner>();
 
             foreach (var gr in groups)
             {
                 var thisGroupLearners = from relate in _context.Relates
-                                        where relate.GroupId == gr.Id
-                                        select relate.Learner;
+                    where relate.GroupId == ((Group?)gr).Id
+                    select relate.Learner;
 
                 learners.AddRange(thisGroupLearners);
             }
 
             // Получаем все ДЗ.
             var homeworks = from task in _context.Tasks
-                            where task.Type.Name == "HW"
-                            select task;
+                where task.Type.Name == "HW"
+                select task;
 
             List<TrackerTaskDTO> result = new List<TrackerTaskDTO>();
 
@@ -314,28 +327,34 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 // По идее, даже если работа групповая, оценки всё равно индивидуальные, как и объекты Solutions.
 
                 var submittedSolutions = from solution in _context.Solutions
-                                         where solution.Task == homework && learners.Contains(solution.Learner)
-                                         select solution;
+                    where solution.Task == homework && learners.Contains(solution.Learner)
+                    select solution;
 
-                comp += submittedSolutions.Count();
+                comp += await submittedSolutions.CountAsync();
 
                 var evaluatedSolutions = from assess in _context.Assessments
-                                         where assess.Task == homework && learners.Contains(assess.Learner)
-                                         select assess;
+                    where assess.Task == homework && learners.Contains(assess.Learner)
+                    select assess;
 
-                eval += evaluatedSolutions.Count();
+                eval += await evaluatedSolutions.CountAsync();
 
-                TrackerTaskDTO dto = new TrackerTaskDTO();
 
-                TaskOutputDTO task = new TaskOutputDTO();
-                task.Title = homework.Title;
-                task.Id = homework.Id;
-                dto.task = task;
+                TaskOutputDTO task = new TaskOutputDTO
+                {
+                    Title = homework.Title,
+                    Id = homework.Id
+                };
 
-                dto.deadline = homework.Deadline;
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                TrackerTaskDTO dto = new TrackerTaskDTO
+                {
+                    task = task,
+                    deadline = TimeZoneInfo.ConvertTime(homework.Deadline, tz),
+                    submittedNumber = comp,
+                    notEvaluatedNumber = comp - eval
+                };
                 dto.deadline.AddDays(7);
-                dto.submittedNumber = comp;
-                dto.notEvaluatedNumber = comp - eval;
+
 
                 result.Add(dto);
             }
@@ -347,20 +366,24 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     {
                         result = result.OrderBy(dto => dto.task.Title).ToList();
                     }
+
                     if (sortOrder == "desc")
                     {
                         result = result.OrderByDescending(dto => dto.task.Title).ToList();
                     }
+
                     break;
                 case "notEvaluated":
                     if (sortOrder == "asc")
                     {
                         result = result.OrderBy(dto => dto.notEvaluatedNumber).ToList();
                     }
+
                     if (sortOrder == "desc")
                     {
                         result = result.OrderByDescending(dto => dto.notEvaluatedNumber).ToList();
                     }
+
                     break;
             }
 
@@ -377,7 +400,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> TrackerGetSolutionsOnTask(int taskId)
         {
             int trackerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
-            Models.Task? thisTask = _context.Tasks.Find(taskId);
+            Models.Task? thisTask = await _context.Tasks.FindAsync(taskId);
 
             if (thisTask == null)
             {
@@ -385,66 +408,68 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             }
 
             var groups = from relation in _context.Relates
-                         where relation.LearnerId == trackerId
-                         select _context.Groups.First(gr => gr.Id == relation.GroupId);
+                where relation.LearnerId == trackerId
+                select _context.Groups.First(gr => gr.Id == relation.GroupId);
 
             List<Learner> learners = new List<Learner>();
 
             foreach (var gr in groups)
             {
                 var thisGroupLearners = from relate in _context.Relates
-                                        where relate.GroupId == gr.Id
-                                        select relate.Learner;
+                    where relate.GroupId == gr.Id
+                    select relate.Learner;
 
                 learners.AddRange(thisGroupLearners);
             }
 
             List<TrackerSeeSolutionDTO> result = new List<TrackerSeeSolutionDTO>();
 
-            foreach (var learner in learners) 
+            foreach (var learner in learners)
             {
-                Solution? submittedSolution = _context.Solutions.FirstOrDefault(solution => solution.Learner == learner && solution.TaskId == taskId);
-
+                Solution? submittedSolution = await _context.Solutions.FirstOrDefaultAsync(solution =>
+                    solution.Learner == learner && solution.TaskId == taskId);
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
                 // Если решения нет, то ученик его не сдал.
                 if (submittedSolution == null)
                 {
-                    TrackerSeeSolutionDTO dto = new TrackerSeeSolutionDTO();
-                    dto.id = 0;
-                    dto.Name = learner.Surname;
-                    dto.Name += " ";
-                    dto.Name = learner.Name;
-                    dto.completedDateTime = null;
-                    dto.assessment = null;
+                    TrackerSeeSolutionDTO dto = new TrackerSeeSolutionDTO
+                    {
+                        id = 0,
+                        Name = $"{learner.Surname} {learner.Name}",
+                        completedDateTime = null,
+                        assessment = null
+                    };
                     result.Add(dto);
-                } 
+                }
                 else
                 {
-                    Assessments? grade = _context.Assessments.FirstOrDefault(assessment => assessment.Learner == learner && assessment.TaskId == taskId && assessment.TrackerId == trackerId);
+                    Assessments? grade = _context.Assessments.FirstOrDefault(assessment =>
+                        assessment.Learner == learner && assessment.TaskId == taskId &&
+                        assessment.TrackerId == trackerId);
 
                     // Если отметки нет, то трекер её не поставил.
                     if (grade == null)
                     {
-                        TrackerSeeSolutionDTO dto = new TrackerSeeSolutionDTO();
-                        dto.id = submittedSolution.SolutionId;
-                        dto.Name = learner.Surname;
-                        dto.Name += " ";
-                        dto.Name = learner.Name;
-                        dto.completedDateTime = submittedSolution.CompleteDate;
-                        dto.assessment = null;
-                        result.Add(dto);
-                    } 
-                    else
-                    {
-                        TrackerSeeSolutionDTO dto = new TrackerSeeSolutionDTO();
-                        dto.id = submittedSolution.SolutionId;
-                        dto.Name = learner.Surname;
-                        dto.Name += " ";
-                        dto.Name = learner.Name;
-                        dto.completedDateTime = submittedSolution.CompleteDate;
-                        dto.assessment = grade.Grade;
+                        TrackerSeeSolutionDTO dto = new TrackerSeeSolutionDTO
+                        {
+                            id = submittedSolution.SolutionId,
+                            Name = $"{learner.Surname} {learner.Name}",
+                            completedDateTime = TimeZoneInfo.ConvertTime(submittedSolution.CompleteDate, tz),
+                            assessment = null
+                        };
                         result.Add(dto);
                     }
-                    
+                    else
+                    {
+                        TrackerSeeSolutionDTO dto = new TrackerSeeSolutionDTO
+                        {
+                            id = submittedSolution.SolutionId,
+                            Name = $"{learner.Surname} {learner.Name}",
+                            completedDateTime = TimeZoneInfo.ConvertTime(submittedSolution.CompleteDate, tz),
+                            assessment = grade.Grade
+                        };
+                        result.Add(dto);
+                    }
                 }
             }
 
@@ -463,20 +488,18 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             int trackerId = int.Parse(HttpContext.User.FindFirst(ClaimTypes.Sid).Value);
 
             Solution? thisSolution = await _context.Solutions.FindAsync(solutionId);
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
 
             if (thisSolution == null)
             {
                 return NotFound();
             }
 
-            TrackerInspectSolutionDTO dto = new TrackerInspectSolutionDTO();
-
-            dto.id = thisSolution.SolutionId;
-
-            LearnerShortDTO learner = new LearnerShortDTO();
-            learner.Name = thisSolution.Learner.Surname + " " + thisSolution.Learner.Name;
-            learner.Id = thisSolution.LearnerId;
-            dto.learner = learner;
+            LearnerShortDTO learner = new LearnerShortDTO
+            {
+                Name = thisSolution.Learner.Surname + " " + thisSolution.Learner.Name,
+                Id = thisSolution.LearnerId
+            };
 
             // Ищем команду.
             Group group = (await _context.Relates.FirstAsync(relate => relate.LearnerId == learner.Id)).Group;
@@ -486,43 +509,47 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 id = group.Id,
                 number = group.Number
             };
-            dto.team = team;
+
 
             // Заполняем данные о задании.
-
-            TaskSolutionDTO task = new TaskSolutionDTO
-            {
-                Id = thisSolution.TaskId,
-                title = thisSolution.Task.Title,
-                deadline = thisSolution.Task.Deadline,
-                description = thisSolution.Task.Comment,
-                criteria = thisSolution.Task.Criteria,
-                isTeamwork = thisSolution.Task.IsGroup,
-                taskType = thisSolution.Task.Type.Name
-            };
-
             LessonOutputDTO lesson = new LessonOutputDTO
             {
                 Id = thisSolution.Task.Lesson.Id,
                 Number = thisSolution.Task.Lesson.Number
             };
-            task.lesson = lesson;
 
-            task.link = thisSolution.Task.Link;
-            dto.task = task;
+            TaskSolutionDTO task = new TaskSolutionDTO
+            {
+                Id = thisSolution.TaskId,
+                title = thisSolution.Task.Title,
+                deadline = TimeZoneInfo.ConvertTime(thisSolution.Task.Deadline, tz),
+                description = thisSolution.Task.Comment,
+                criteria = thisSolution.Task.Criteria,
+                isTeamwork = thisSolution.Task.IsGroup,
+                taskType = thisSolution.Task.Type.Name,
+                lesson = lesson,
+                link = thisSolution.Task.Link
+            };
 
-            // Заполняем всё остальное.
+            TrackerInspectSolutionDTO dto = new TrackerInspectSolutionDTO
+            {
+                learner = learner,
+                team = team,
+                id = thisSolution.SolutionId,
+                task = task,
+                completeDateTime = TimeZoneInfo.ConvertTime(thisSolution.CompleteDate, tz),
+                fileId = thisSolution.fileId
+            };
 
-            dto.completeDateTime = thisSolution.CompleteDate;
-            dto.fileId = thisSolution.fileId;
-            
-            Assessments? assess = _context.Assessments.FirstOrDefault(assessment => assessment.TaskId == thisSolution.TaskId && assessment.LearnerId == thisSolution.LearnerId && assessment.TrackerId == trackerId);
+            Assessments? assess = await _context.Assessments.FirstOrDefaultAsync(assessment =>
+                assessment.TaskId == thisSolution.TaskId && assessment.LearnerId == thisSolution.LearnerId &&
+                assessment.TrackerId == trackerId);
 
             if (assess != null)
             {
                 dto.comment = assess.Comment;
                 dto.assessment = assess.Grade;
-            } 
+            }
             else
             {
                 dto.comment = null;

@@ -15,7 +15,9 @@ public record ClaimInfoDTO
         claimType = claim.Type.Name;
         id = claim.Id;
         status = claim.Status.Name;
-        dateTime = claim.Date.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+        TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+        DateTime dateTimeConverted = TimeZoneInfo.ConvertTime(claim.Date, tz);
+        dateTime = dateTimeConverted.ToString("O");
         if (claimType == "BuyingLot" && claim.Lot != null)
         {
             lot = new Lot(claim.Lot);

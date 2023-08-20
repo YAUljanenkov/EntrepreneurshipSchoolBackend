@@ -35,8 +35,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             var relevant_data = _context.Lessons
             .Include(x => x.Tasks)
             .Where(x => request.lessonNumber == null || x.Number.Equals(request.lessonNumber))
-            .Where(x => request.lessonTitle == null || x.Title == request.lessonTitle)
-            ;
+            .Where(x => request.lessonTitle == null || x.Title == request.lessonTitle);
 
             relevant_data = request.sortProperty?.ToLower() switch
             {
@@ -52,7 +51,6 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 _ => relevant_data
             };
 
-            var relevant_data_list = relevant_data.ToList();
             if (request.pageable)
             {
                 if (request.page == null || request.pageSize == null)
@@ -60,44 +58,53 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                     request.page = 1;
                     request.pageSize = 10;
                 }
-                var lessOnThePage = relevant_data_list.Skip(request.pageSize.Value * (request.page.Value - 1)).Take(request.pageSize.Value);
-                if (lessOnThePage.Count() == 0)
+                var lessOnThePage = relevant_data.Skip(request.pageSize.Value * (request.page.Value - 1)).Take(request.pageSize.Value);
+                if (!(await lessOnThePage.AnyAsync()))
                 {
                     return BadRequest("page number is too big");
                 }
                 List<LessonInfo> content = new List<LessonInfo>();
                 foreach (var les in lessOnThePage)
                 {
-                    LessonInfo info = new LessonInfo();
-                    info.id = les.Id;
-                    info.title = les.Title;
-                    info.number = les.Number;
-                    info.date = les.Date.ToString();
+                    TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                    DateTime dateTimeConverted = TimeZoneInfo.ConvertTime(les.Date, tz);
+                    LessonInfo info = new LessonInfo
+                    {
+                        id = les.Id,
+                        title = les.Title,
+                        number = les.Number,
+                        date = dateTimeConverted.ToString("O")
+                    };
                     content.Add(info);
                 }
-                Pagination pagination = new Pagination();
-                pagination.TotalElements = relevant_data_list.Count();
-                pagination.TotalPages = (relevant_data_list.Count() + request.pageSize.Value - 1) / request.pageSize.Value;
-                pagination.PageSize = content.Count;
-                pagination.Page = request.page.Value;
-                LessonResponse response = new LessonResponse();
-                response.content = content;
-                response.pagination = pagination;
+
+                var dataLength = await relevant_data.CountAsync();
+                Pagination pagination = new Pagination
+                {
+                    TotalElements = dataLength,
+                    TotalPages = (dataLength + request.pageSize.Value - 1) / request.pageSize.Value,
+                    PageSize = content.Count,
+                    Page = request.page.Value
+                };
+                LessonResponse response = new LessonResponse
+                {
+                    content = content,
+                    pagination = pagination
+                };
                 return Ok(response);
             } else
             {
-                List<LessonInfo> content = new List<LessonInfo>();
-                foreach (var les in relevant_data_list)
+                TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+                LessonResponse response = new LessonResponse
                 {
-                    LessonInfo info = new LessonInfo();
-                    info.id = les.Id;
-                    info.title = les.Title;
-                    info.number = les.Number;
-                    info.date = les.Date.ToString();
-                    content.Add(info);
-                }
-                LessonResponse response = new LessonResponse();
-                response.content = content;
+                    content = await relevant_data.Select(les => new LessonInfo
+                    {
+                        id = les.Id,
+                        title = les.Title,
+                        number = les.Number,
+                        date = TimeZoneInfo.ConvertTime(les.Date, tz).ToString("O")
+                    }).ToListAsync()
+                };
                 return Ok(response);
             }
         }
@@ -107,12 +114,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         public async Task<ActionResult> CreateLesson([FromBody] LessonRequest lesson)
         {
             List<string> same_properties = new List<string>();
-            var intersect = _context.Lessons.FirstOrDefault(ob => ob.Number == lesson.number);
+            var intersect = await _context.Lessons.FirstOrDefaultAsync(ob => ob.Number == lesson.number);
             if (intersect != null)
             {
                 same_properties.Add("number");
             }
-            intersect = _context.Lessons.FirstOrDefault(ob => ob.Title == lesson.title);
+            intersect = await _context.Lessons.FirstOrDefaultAsync(ob => ob.Title == lesson.title);
             if (intersect != null)
             {
                 same_properties.Add("title");
@@ -121,17 +128,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 return StatusCode(409, same_properties);
             }
-            DateTime date;
-            if (!DateTime.TryParse(lesson.date, out date))
-            {
-                return BadRequest("bad date");
-            }
 
-            Lesson newLesson = new Lesson();
-            newLesson.Title = lesson.title;
-            newLesson.Number = lesson.number;
-            newLesson.Date = date;
-            newLesson.Description = lesson.description;
+            Lesson newLesson = new Lesson
+            {
+                Title = lesson.title,
+                Number = lesson.number,
+                Date = lesson.date.ToUniversalTime(),
+                Description = lesson.description
+            };
             if (lesson.presLink != null)
             {
                 newLesson.PresLink = lesson.presLink;
@@ -141,7 +145,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 newLesson.VideoLink = lesson.videoLink;
             }
             _context.Lessons.Add(newLesson);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             if (lesson.homeworkId != null)
             {
                 Models.Task? homework = await _context.Tasks.FindAsync(lesson.homeworkId);
@@ -187,19 +191,14 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 return BadRequest("Id is not specified");
             }
-            Models.Lesson? les = _context.Lessons.Find(lesson.id);
+            Models.Lesson? les = await _context.Lessons.FindAsync(lesson.id);
             if (les == null)
             {
                 return NotFound();
             }
-            DateTime date;
-            if (!DateTime.TryParse(lesson.date, out date))
-            {
-                return BadRequest("bad date");
-            }
             les.Title = lesson.title;
             les.Number = lesson.number;
-            les.Date = date;
+            les.Date = lesson.date.ToUniversalTime();
             les.Description = lesson.description;
             if (lesson.presLink != null)
             {
@@ -210,7 +209,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 les.VideoLink = lesson.videoLink;
             }
             _context.Lessons.Add(les);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             if (lesson.homeworkId != null)
             {
                 Models.Task? homework = await _context.Tasks.FindAsync(lesson.homeworkId);
@@ -253,13 +252,15 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> GetLessonPublicData(int id)
         {
-            Models.Lesson? les = _context.Lessons.Include(x=>x.Tasks).FirstOrDefault(x=>x.Id == id);
+            Models.Lesson? les = await _context.Lessons.Include(x=>x.Tasks).FirstOrDefaultAsync(x=>x.Id == id);
             if (les == null) { return NotFound(); }
             LessonExtendedInfo info = new LessonExtendedInfo();
             foreach (var task in _context.Lessons.Include(x => x.Tasks).Where(x => x.Id == id).SelectMany(x=>x.Tasks)) {
-                TaskInLesson t = new TaskInLesson();
-                t.title = task.Title;
-                t.id    = task.Id;
+                TaskInLesson t = new TaskInLesson
+                {
+                    title = task.Title,
+                    id = task.Id
+                };
                 if (task.Type.Name == "HW")
                 {
                     info.homework = t;
@@ -269,7 +270,8 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
             }
             info.description = les.Description;
-            info.date = les.Date.ToString();
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+            info.date = TimeZoneInfo.ConvertTime(les.Date, tz).ToString("O");
             info.id = les.Id;
             info.number = les.Number;
             info.title = les.Title;
@@ -288,10 +290,12 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             List<ShortenLesson> content = new List<ShortenLesson>();
             foreach (var les in relevant_data)
             {
-                ShortenLesson info = new ShortenLesson();
-                info.id = les.Id;
-                info.number = les.Number;
-                info.title = les.Title;
+                ShortenLesson info = new ShortenLesson
+                {
+                    id = les.Id,
+                    number = les.Number,
+                    title = les.Title
+                };
                 content.Add(info);
             }
 
@@ -302,7 +306,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult> DeleteLesson(int id)
         {
-            Models.Lesson? les = _context.Lessons.Find(id);
+            Models.Lesson? les = await _context.Lessons.FindAsync(id);
             if (les == null)
             {
                 return NotFound();
@@ -326,9 +330,11 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             List<ShortenLessonInfo> content = new List<ShortenLessonInfo>();
             foreach (var les in relevant_data)
             {
-                ShortenLessonInfo info = new ShortenLessonInfo();
-                info.id = les.Id;
-                info.number = les.Number;
+                ShortenLessonInfo info = new ShortenLessonInfo
+                {
+                    id = les.Id,
+                    number = les.Number
+                };
                 content.Add(info);
             }
 
@@ -339,17 +345,22 @@ namespace EntrepreneurshipSchoolBackend.Controllers
         [Authorize]
         public async Task<ActionResult> GetLessonById(int id)
         {
-            Models.Lesson? les = _context.Lessons.Include(x => x.Tasks).FirstOrDefault(x => x.Id == id);
+            Models.Lesson? les = await _context.Lessons.Include(x => x.Tasks).FirstOrDefaultAsync(x => x.Id == id);
             if (les == null) { return NotFound(); }
             LessonSuperExtendedInfo info = new LessonSuperExtendedInfo();
+            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
             foreach (var task in _context.Lessons.Include(x => x.Tasks).Where(x => x.Id == id).SelectMany(x => x.Tasks))
             {
-                ExtendedTaskInfo t = new ExtendedTaskInfo();
-                t.title = task.Title;
-                t.id = task.Id;
-                t.lesson = new ShortenLessonInfo();
-                t.lesson.id = id;
-                t.lesson.number = les.Number;
+                ExtendedTaskInfo t = new ExtendedTaskInfo
+                {
+                    title = task.Title,
+                    id = task.Id,
+                    lesson = new ShortenLessonInfo
+                    {
+                        id = id,
+                        number = les.Number
+                    }
+                };
                 if (task.Comment != null)
                 {
                     t.description = task.Comment;
@@ -363,7 +374,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 {
                     t.link = task.Link;
                 }
-                t.deadline = task.Deadline.ToString();
+                t.deadline = TimeZoneInfo.ConvertTime(task.Deadline, tz).ToString("O");
                 if (task.Type.Name == "HW")
                 {
                     t.taskType = "HW";
@@ -376,7 +387,7 @@ namespace EntrepreneurshipSchoolBackend.Controllers
                 }
             }
             info.description = les.Description;
-            info.date = les.Date.ToString();
+            info.date = TimeZoneInfo.ConvertTime(les.Date, tz).ToString("O");
             info.id = les.Id;
             info.number = les.Number;
             info.title = les.Title;
