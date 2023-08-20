@@ -1,0 +1,37 @@
+version: "3.9"
+
+networks:
+  backend-dev:
+    driver: bridge
+
+services:
+  backend:
+    image: entrepreneurshipschool:latest
+    depends_on: 
+      - database
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:80"
+    environment:
+      DB_CONNECTION_STRING: "host=database;port=5432;database=database;username=admin;password=password"
+      ASPNETCORE_ENVIRONMENT: "Development"
+    networks:
+      - backend-dev
+  
+  
+  database:
+    image: postgres:14.5
+    restart: always
+    environment:
+      POSTGRES_DB: "database"
+      POSTGRES_USER: "admin"
+      POSTGRES_PASSWORD: "password"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - ./docker/db/data/database/:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+    networks:
+      - backend-dev
