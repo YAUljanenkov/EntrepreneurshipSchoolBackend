@@ -7,6 +7,7 @@ using System.Data;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using EntrepreneurshipSchoolBackend.DTOs;
 using LinqKit;
+using SimMetrics.Net;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using EntrepreneurshipSchoolBackend.Utility;
@@ -40,10 +41,9 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             {
                 return BadRequest("Bad sort property");
             }
+            var sim = new SimMetrics.Net.Metric.JaroWinkler();
             var relevant_data = _context.Learner
             .Include(x => x.Relate)
-            .Where(x => request.name == null || x.Name.Equals(request.name.Split()[1])
-            && x.Surname.Equals(request.name.Split()[0]))
             .Where(x=> request.email == null || x.EmailLogin == request.email)
             .Where(x=> request.role == null || x.IsTracker == (request.role == "Learner" ? '0' : '1'))
             .Where(x=> request.team == null || x.Relate.Any(m => m.Group != null && m.Group.Number == request.team))
@@ -71,6 +71,29 @@ namespace EntrepreneurshipSchoolBackend.Controllers
             };
 
             var relevant_data_list = relevant_data.ToList();
+             if (request.name != null)
+            {
+                string[] words = Regex.Split(request.name, @"\W|_");
+                relevant_data_list = relevant_data_list
+                    .Where(
+                    x => words.Length switch
+                    {
+                        0 => 0,
+                        1 => Math.Max(sim.GetSimilarity(words[0], x.Name), sim.GetSimilarity(words[0], x.Surname)),
+                        2 => Math.Max(sim.GetSimilarity(words[0], x.Name) * sim.GetSimilarity(words[1], x.Surname), sim.GetSimilarity(words[1], x.Name) * sim.GetSimilarity(words[0], x.Surname)),
+                        _ => Math.Max(sim.GetSimilarity(words[0], x.Name) * sim.GetSimilarity(words[1], x.Surname), sim.GetSimilarity(words[1], x.Name) * sim.GetSimilarity(words[0], x.Surname))
+                    } >= 0.5
+                    )
+                    .OrderByDescending(x => words.Length switch
+                    {
+                        0 => 0,
+                        1 => Math.Max(sim.GetSimilarity(words[0], x.Name), sim.GetSimilarity(words[0], x.Surname)),
+                        2 => Math.Max(sim.GetSimilarity(words[0], x.Name) * sim.GetSimilarity(words[1], x.Surname), sim.GetSimilarity(words[1], x.Name) * sim.GetSimilarity(words[0], x.Surname)),
+                        _ => Math.Max(sim.GetSimilarity(words[0], x.Name) * sim.GetSimilarity(words[1], x.Surname), sim.GetSimilarity(words[1], x.Name) * sim.GetSimilarity(words[0], x.Surname))
+                    }
+                    ).ToList();
+
+            }
             var accsOnThePage = relevant_data_list.Skip(request.pageSize * (request.page - 1)).Take(request.pageSize).AsEnumerable();
             if (accsOnThePage == null)
             {
